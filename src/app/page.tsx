@@ -1,10 +1,5 @@
-import { DarkModeToggle } from "@/components/common/darkmode-toggle";
-import Image from "next/image";
+import { HomeLandingPage } from "@/components/home/home-landing-page";
 
 export default function Home() {
-  return (
-    <div>
-      <DarkModeToggle />
-    </div>
-  );
+  return <HomeLandingPage />;
 }

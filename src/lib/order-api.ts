@@ -1,104 +1,76 @@
+﻿import { gatewayRequest } from "@/lib/gateway-api";
 import { CheckoutPayload, Order, OrderStatus, RatingPayload } from "@/types/order";
 
-interface ApiOptions {
-  method?: "GET" | "POST" | "PATCH";
-  body?: unknown;
-  query?: Record<string, string | number | undefined>;
-  headers?: Record<string, string>;
-}
-
-function toQueryString(query?: ApiOptions["query"]): string {
-  if (!query) return "";
-  const params = new URLSearchParams();
-  Object.entries(query).forEach(([key, value]) => {
-    if (value !== undefined && value !== "") {
-      params.set(key, String(value));
-    }
-  });
-  const output = params.toString();
-  return output ? `?${output}` : "";
-}
-
-async function request<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const { method = "GET", body, query, headers } = options;
-  const response = await fetch(`/api/proxy${path}${toQueryString(query)}`, {
-    method,
-    headers: {
-      ...(body ? { "Content-Type": "application/json" } : {}),
-      ...(headers ?? {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-    cache: "no-store",
-  });
-
-  const text = await response.text();
-  let data: unknown = null;
-
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { message: text };
-    }
-  }
-
-  if (!response.ok) {
-    const message =
-      typeof data === "object" && data !== null
-        ? (data as { message?: string; error?: string }).message ??
-          (data as { message?: string; error?: string }).error
-        : undefined;
-    throw new Error(message ?? "Request gagal diproses.");
-  }
-
-  return data as T;
+interface CommonHeaders {
+  authorization?: string;
+  idempotencyKey?: string;
 }
 
 export const orderApi = {
-  checkout(payload: CheckoutPayload, idempotencyKey?: string) {
-    return request<Order>("/orders/checkout", {
+  checkout(payload: CheckoutPayload, headers?: CommonHeaders) {
+    return gatewayRequest<Order>("order", "api/orders/checkout", {
       method: "POST",
       body: payload,
-      headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+      headers: {
+        Authorization: headers?.authorization,
+        "Idempotency-Key": headers?.idempotencyKey,
+      },
     });
   },
-  getAll() {
-    return request<Order[]>("/orders");
+  getAll(headers?: CommonHeaders) {
+    return gatewayRequest<Order[]>("order", "api/orders", {
+      headers: { Authorization: headers?.authorization },
+    });
   },
-  getTitiperActive(userId: string) {
-    return request<Order[]>(`/orders/titiper/${userId}/active`);
+  getTitiperActive(userId: string, headers?: CommonHeaders) {
+    return gatewayRequest<Order[]>("order", `api/orders/titiper/${userId}/active`, {
+      headers: { Authorization: headers?.authorization },
+    });
   },
-  getTitiperHistory(userId: string) {
-    return request<Order[]>(`/orders/titiper/${userId}/history`);
+  getTitiperHistory(userId: string, headers?: CommonHeaders) {
+    return gatewayRequest<Order[]>("order", `api/orders/titiper/${userId}/history`, {
+      headers: { Authorization: headers?.authorization },
+    });
   },
-  getJastiperTodo(jastiperId: string) {
-    return request<Order[]>(`/orders/jastiper/${jastiperId}/todo`);
+  getJastiperTodo(jastiperId: string, headers?: CommonHeaders) {
+    return gatewayRequest<Order[]>("order", `api/orders/jastiper/${jastiperId}/todo`, {
+      headers: { Authorization: headers?.authorization },
+    });
   },
-  getJastiperProcessing(jastiperId: string) {
-    return request<Order[]>(`/orders/jastiper/${jastiperId}/processing`);
+  getJastiperProcessing(jastiperId: string, headers?: CommonHeaders) {
+    return gatewayRequest<Order[]>("order", `api/orders/jastiper/${jastiperId}/processing`, {
+      headers: { Authorization: headers?.authorization },
+    });
   },
-  getJastiperCompleted(jastiperId: string) {
-    return request<Order[]>(`/orders/jastiper/${jastiperId}/completed`);
+  getJastiperCompleted(jastiperId: string, headers?: CommonHeaders) {
+    return gatewayRequest<Order[]>("order", `api/orders/jastiper/${jastiperId}/completed`, {
+      headers: { Authorization: headers?.authorization },
+    });
   },
-  getAdminActive() {
-    return request<Order[]>("/orders/admin/active");
+  getAdminActive(headers?: CommonHeaders) {
+    return gatewayRequest<Order[]>("order", "api/orders/admin/active", {
+      headers: { Authorization: headers?.authorization },
+    });
   },
-  updateStatus(orderId: string, status: OrderStatus) {
-    return request<Order>(`/orders/${orderId}/status`, {
+  updateStatus(orderId: string, status: OrderStatus, headers?: CommonHeaders) {
+    return gatewayRequest<Order>("order", `api/orders/${orderId}/status`, {
       method: "PATCH",
       query: { status },
+      headers: { Authorization: headers?.authorization },
     });
   },
-  cancelByJastiper(orderId: string, jastiperId: string) {
-    return request<Order>(`/orders/${orderId}/cancel`, {
+  cancelByJastiper(orderId: string, jastiperId: string, headers?: CommonHeaders) {
+    return gatewayRequest<Order>("order", `api/orders/${orderId}/cancel`, {
       method: "POST",
       query: { jastiperId },
+      headers: { Authorization: headers?.authorization },
     });
   },
-  submitRating(orderId: string, payload: RatingPayload) {
-    return request<Order>(`/orders/${orderId}/rating`, {
+  submitRating(orderId: string, payload: RatingPayload, headers?: CommonHeaders) {
+    return gatewayRequest<Order>("order", `api/orders/${orderId}/rating`, {
       method: "POST",
       body: payload,
+      headers: { Authorization: headers?.authorization },
     });
   },
 };

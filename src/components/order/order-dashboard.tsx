@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import { DarkModeToggle } from "@/components/common/darkmode-toggle";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { orderApi } from "@/lib/order-api";
+import { readSession } from "@/lib/client-session";
 import { Order, OrderStatus } from "@/types/order";
 
 type Role = "titiper" | "jastiper" | "admin";
@@ -18,12 +19,6 @@ interface Segment {
   orders: Order[];
   emptyLabel: string;
 }
-
-const ROLE_LABELS: Record<Role, string> = {
-  titiper: "Titiper",
-  jastiper: "Jastiper",
-  admin: "Admin",
-};
 
 const STATUS_ACTIONS_BY_ROLE: Record<Role, Partial<Record<OrderStatus, OrderStatus>>> = {
   titiper: {},
@@ -55,73 +50,72 @@ function newIdempotencyKey() {
     : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps) {
-  const [view, setView] = useState<ViewMode>(initialView);
-  const [role, setRole] = useState<Role>("titiper");
-  const [userId, setUserId] = useState("user-001");
-  const [jastiperId, setJastiperId] = useState("jastiper-001");
+function mapRole(raw: string): Role {
+  const role = raw.toUpperCase();
+  if (role.includes("ADMIN")) return "admin";
+  if (role.includes("JASTIPER")) return "jastiper";
+  return "titiper";
+}
 
+export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps) {
+  const session = useMemo(() => readSession(), []);
+  const role = useMemo(() => mapRole(session.role), [session.role]);
+  const authHeader = useMemo(() => (session.token ? `Bearer ${session.token}` : undefined), [session.token]);
+  const sessionUserId = session.userId.trim();
+
+  const [view, setView] = useState<ViewMode>(initialView);
+  const [jastiperId, setJastiperId] = useState("");
   const [checkoutForm, setCheckoutForm] = useState({
     productId: "",
-    userId: "user-001",
-    jastiperId: "jastiper-001",
+    jastiperId: "",
     jumlah: 1,
     alamatPengiriman: "",
+    voucherCode: "",
     idempotencyKey: newIdempotencyKey(),
   });
-
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, { jastiperRating: number; productRating: number }>>(
     {}
   );
-
   const [segments, setSegments] = useState<Segment[]>([]);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string>("");
-  const [error, setError] = useState<string>("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-  const roleNeedsUser = role === "titiper";
-  const roleNeedsJastiper = role === "jastiper";
-
-  const canLoad = useMemo(() => {
-    if (roleNeedsUser) return Boolean(userId.trim());
-    if (roleNeedsJastiper) return Boolean(jastiperId.trim());
-    return true;
-  }, [role, roleNeedsJastiper, roleNeedsUser, userId, jastiperId]);
+  const canUseOrder = Boolean(authHeader && sessionUserId);
+  const currentJastiperId = role === "jastiper" ? sessionUserId : jastiperId.trim();
 
   async function loadOrders() {
+    if (!canUseOrder) return;
     setLoading(true);
     setError("");
     setMessage("");
-
     try {
       if (role === "titiper") {
         const [active, history] = await Promise.all([
-          orderApi.getTitiperActive(userId.trim()),
-          orderApi.getTitiperHistory(userId.trim()),
+          orderApi.getTitiperActive(sessionUserId, { authorization: authHeader }),
+          orderApi.getTitiperHistory(sessionUserId, { authorization: authHeader }),
         ]);
         setSegments([
-          { title: "Order Aktif", orders: active, emptyLabel: "Tidak ada order aktif." },
-          { title: "Riwayat Order", orders: history, emptyLabel: "Riwayat order kosong." },
+          { title: "Order Aktif", orders: active, emptyLabel: "Belum ada order aktif." },
+          { title: "Riwayat Order", orders: history, emptyLabel: "Riwayat order masih kosong." },
         ]);
       } else if (role === "jastiper") {
         const [todo, processing, completed] = await Promise.all([
-          orderApi.getJastiperTodo(jastiperId.trim()),
-          orderApi.getJastiperProcessing(jastiperId.trim()),
-          orderApi.getJastiperCompleted(jastiperId.trim()),
+          orderApi.getJastiperTodo(sessionUserId, { authorization: authHeader }),
+          orderApi.getJastiperProcessing(sessionUserId, { authorization: authHeader }),
+          orderApi.getJastiperCompleted(sessionUserId, { authorization: authHeader }),
         ]);
         setSegments([
-          { title: "To-Do (PAID)", orders: todo, emptyLabel: "Tidak ada order menunggu proses." },
-          { title: "Processing", orders: processing, emptyLabel: "Tidak ada order yang diproses." },
-          { title: "Completed / Cancelled", orders: completed, emptyLabel: "Belum ada order selesai." },
+          { title: "Perlu Diproses", orders: todo, emptyLabel: "Tidak ada order baru." },
+          { title: "Sedang Diproses", orders: processing, emptyLabel: "Tidak ada order in-progress." },
+          { title: "Selesai / Dibatalkan", orders: completed, emptyLabel: "Belum ada riwayat selesai." },
         ]);
       } else {
-        const active = await orderApi.getAdminActive();
-        setSegments([{ title: "Admin Active Orders", orders: active, emptyLabel: "Tidak ada order aktif." }]);
+        const active = await orderApi.getAdminActive({ authorization: authHeader });
+        setSegments([{ title: "Order Aktif Sistem", orders: active, emptyLabel: "Tidak ada order aktif." }]);
       }
-
-      setMessage("Data order berhasil diperbarui.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memuat order.");
+      setError(err instanceof Error ? err.message : "Gagal memuat data order.");
     } finally {
       setLoading(false);
     }
@@ -129,28 +123,35 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
 
   async function onCheckoutSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canUseOrder) return;
     setLoading(true);
     setError("");
     setMessage("");
-
     try {
       const order = await orderApi.checkout(
         {
           productId: checkoutForm.productId.trim(),
-          userId: checkoutForm.userId.trim(),
+          userId: sessionUserId,
           jastiperId: checkoutForm.jastiperId.trim(),
           jumlah: Number(checkoutForm.jumlah),
           alamatPengiriman: checkoutForm.alamatPengiriman.trim(),
+          voucherCode: checkoutForm.voucherCode.trim() || undefined,
         },
-        checkoutForm.idempotencyKey.trim() || undefined
+        { authorization: authHeader, idempotencyKey: checkoutForm.idempotencyKey.trim() || undefined }
       );
-      setMessage(`Checkout sukses. Order ID: ${order.id} (${order.status}).`);
-      setCheckoutForm((prev) => ({ ...prev, productId: "", alamatPengiriman: "", idempotencyKey: newIdempotencyKey() }));
-      setRole("titiper");
-      setUserId(order.userId);
+      setMessage(`Checkout berhasil. Order #${order.id} dibuat dengan status ${order.status}.`);
+      setCheckoutForm({
+        productId: "",
+        jastiperId: "",
+        jumlah: 1,
+        alamatPengiriman: "",
+        voucherCode: "",
+        idempotencyKey: newIdempotencyKey(),
+      });
+      setView("list");
+      await loadOrders();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout gagal.");
-    } finally {
       setLoading(false);
     }
   }
@@ -160,22 +161,23 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
     setError("");
     setMessage("");
     try {
-      await orderApi.updateStatus(order.id, targetStatus);
-      setMessage(`Status order ${order.id} diubah ke ${targetStatus}.`);
+      await orderApi.updateStatus(order.id, targetStatus, { authorization: authHeader });
+      setMessage(`Order ${order.id} berhasil diupdate ke ${targetStatus}.`);
       await loadOrders();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengubah status order.");
+      setError(err instanceof Error ? err.message : "Gagal mengubah status.");
       setLoading(false);
     }
   }
 
   async function cancelOrder(order: Order) {
+    if (!currentJastiperId) return;
     setLoading(true);
     setError("");
     setMessage("");
     try {
-      await orderApi.cancelByJastiper(order.id, jastiperId.trim());
-      setMessage(`Order ${order.id} berhasil dibatalkan.`);
+      await orderApi.cancelByJastiper(order.id, currentJastiperId, { authorization: authHeader });
+      setMessage(`Order ${order.id} berhasil dibatalkan dan diproses refund.`);
       await loadOrders();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membatalkan order.");
@@ -189,12 +191,12 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
     setError("");
     setMessage("");
     try {
-      await orderApi.submitRating(order.id, {
-        userId: userId.trim(),
-        jastiperRating: draft.jastiperRating,
-        productRating: draft.productRating,
-      });
-      setMessage(`Rating order ${order.id} berhasil dikirim.`);
+      await orderApi.submitRating(
+        order.id,
+        { userId: sessionUserId, jastiperRating: draft.jastiperRating, productRating: draft.productRating },
+        { authorization: authHeader }
+      );
+      setMessage(`Rating order ${order.id} berhasil disimpan.`);
       await loadOrders();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal submit rating.");
@@ -202,33 +204,57 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
     }
   }
 
+  if (!canUseOrder) {
+    return (
+      <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h1 className="text-2xl font-bold">Order</h1>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Session belum lengkap. Pastikan sudah login dan profil user terisi agar order bisa diproses.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <Link href="/login?next=/order" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900">
+              Login
+            </Link>
+            <Link href="/profile" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">
+              Lengkapi Profil
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-6 text-slate-900 dark:from-slate-950 dark:to-slate-900 dark:text-slate-100">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Frontend Adpro</p>
-            <h1 className="text-2xl font-semibold">Order Workspace</h1>
-          </div>
-          <div className="flex items-center gap-2">
+    <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)]">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6">
+        <section className="rounded-3xl border border-white/60 bg-white/85 p-6 shadow-lg dark:border-slate-700 dark:bg-slate-900/80">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Order Center</p>
+          <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Kelola Order Jastip Anda</h1>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Login sebagai: <span className="font-semibold uppercase">{role}</span> • User ID: {sessionUserId}
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
             <Button variant={view === "checkout" ? "default" : "outline"} onClick={() => setView("checkout")}>Checkout</Button>
-            <Button variant={view === "list" ? "default" : "outline"} onClick={() => setView("list")}>Order List</Button>
-            <DarkModeToggle />
+            <Button variant={view === "list" ? "default" : "outline"} onClick={() => setView("list")}>Lihat Order</Button>
           </div>
-        </header>
+        </section>
 
         {view === "checkout" && (
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="mb-4 text-lg font-semibold">Checkout Order</h2>
-            <form onSubmit={onCheckoutSubmit} className="grid gap-3 md:grid-cols-2">
+            <h2 className="text-lg font-semibold">Checkout Baru</h2>
+            <form onSubmit={onCheckoutSubmit} className="mt-4 grid gap-3 md:grid-cols-2">
               <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Product ID" value={checkoutForm.productId} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, productId: e.target.value }))} required />
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="User ID" value={checkoutForm.userId} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, userId: e.target.value }))} required />
               <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Jastiper ID" value={checkoutForm.jastiperId} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jastiperId: e.target.value }))} required />
               <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" type="number" min={1} placeholder="Jumlah" value={checkoutForm.jumlah} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jumlah: Number(e.target.value) }))} required />
+              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Voucher Code (opsional)" value={checkoutForm.voucherCode} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, voucherCode: e.target.value }))} />
               <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" placeholder="Alamat Pengiriman" value={checkoutForm.alamatPengiriman} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, alamatPengiriman: e.target.value }))} required />
+              <div className="rounded-lg border border-dashed border-slate-300 p-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300 md:col-span-2">
+                User ID checkout akan otomatis memakai session login: <span className="font-mono">{sessionUserId}</span>
+              </div>
               <input className="rounded-lg border border-slate-300 p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950 md:col-span-2" placeholder="Idempotency-Key (opsional)" value={checkoutForm.idempotencyKey} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: e.target.value }))} />
               <div className="md:col-span-2 flex gap-2">
-                <Button type="submit" disabled={loading}>{loading ? "Memproses..." : "Checkout"}</Button>
+                <Button type="submit" disabled={loading}>{loading ? "Memproses..." : "Checkout Sekarang"}</Button>
                 <Button type="button" variant="outline" onClick={() => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: newIdempotencyKey() }))}>Generate Key</Button>
               </div>
             </form>
@@ -238,30 +264,13 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
         {view === "list" && (
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-4 flex flex-wrap items-end gap-3">
-              <label className="flex flex-col gap-1 text-sm">
-                Role
-                <select className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </label>
-
-              {roleNeedsUser && (
+              {role !== "titiper" && role !== "jastiper" && (
                 <label className="flex flex-col gap-1 text-sm">
-                  User ID
-                  <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" value={userId} onChange={(e) => setUserId(e.target.value)} required />
+                  Jastiper ID (untuk cancel)
+                  <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" value={jastiperId} onChange={(e) => setJastiperId(e.target.value)} />
                 </label>
               )}
-
-              {roleNeedsJastiper && (
-                <label className="flex flex-col gap-1 text-sm">
-                  Jastiper ID
-                  <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" value={jastiperId} onChange={(e) => setJastiperId(e.target.value)} required />
-                </label>
-              )}
-
-              <Button onClick={loadOrders} disabled={!canLoad || loading}>{loading ? "Loading..." : "Refresh"}</Button>
+              <Button onClick={loadOrders} disabled={loading}>{loading ? "Loading..." : "Refresh Data"}</Button>
             </div>
 
             <div className="space-y-6">
@@ -276,15 +285,13 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
                         const nextStatus = STATUS_ACTIONS_BY_ROLE[role][order.status];
                         const canCancel =
                           role === "jastiper" &&
-                          order.jastiperId === jastiperId.trim() &&
+                          order.jastiperId === sessionUserId &&
                           !["COMPLETED", "CANCELLED"].includes(order.status);
-
                         const canRate =
                           role === "titiper" &&
-                          order.userId === userId.trim() &&
+                          order.userId === sessionUserId &&
                           order.status === "COMPLETED" &&
                           !order.ratingSubmitted;
-
                         const ratingDraft = ratingDrafts[order.id] ?? { jastiperRating: 5, productRating: 5 };
 
                         return (
@@ -310,7 +317,6 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
                                   Mark as {nextStatus}
                                 </Button>
                               )}
-
                               {canCancel && (
                                 <Button size="sm" variant="outline" onClick={() => cancelOrder(order)} disabled={loading}>
                                   Cancel + Refund
@@ -324,41 +330,11 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
                                 <div className="flex gap-2">
                                   <label className="flex flex-col text-xs">
                                     Jastiper
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      max={5}
-                                      value={ratingDraft.jastiperRating}
-                                      onChange={(e) =>
-                                        setRatingDrafts((prev) => ({
-                                          ...prev,
-                                          [order.id]: {
-                                            ...ratingDraft,
-                                            jastiperRating: Number(e.target.value),
-                                          },
-                                        }))
-                                      }
-                                      className="w-20 rounded border border-slate-300 p-1 dark:border-slate-700 dark:bg-slate-950"
-                                    />
+                                    <input type="number" min={1} max={5} value={ratingDraft.jastiperRating} onChange={(e) => setRatingDrafts((prev) => ({ ...prev, [order.id]: { ...ratingDraft, jastiperRating: Number(e.target.value) } }))} className="w-20 rounded border border-slate-300 p-1 dark:border-slate-700 dark:bg-slate-950" />
                                   </label>
                                   <label className="flex flex-col text-xs">
                                     Produk
-                                    <input
-                                      type="number"
-                                      min={1}
-                                      max={5}
-                                      value={ratingDraft.productRating}
-                                      onChange={(e) =>
-                                        setRatingDrafts((prev) => ({
-                                          ...prev,
-                                          [order.id]: {
-                                            ...ratingDraft,
-                                            productRating: Number(e.target.value),
-                                          },
-                                        }))
-                                      }
-                                      className="w-20 rounded border border-slate-300 p-1 dark:border-slate-700 dark:bg-slate-950"
-                                    />
+                                    <input type="number" min={1} max={5} value={ratingDraft.productRating} onChange={(e) => setRatingDrafts((prev) => ({ ...prev, [order.id]: { ...ratingDraft, productRating: Number(e.target.value) } }))} className="w-20 rounded border border-slate-300 p-1 dark:border-slate-700 dark:bg-slate-950" />
                                   </label>
                                   <Button size="sm" className="self-end" onClick={() => submitRating(order)} disabled={loading}>
                                     Kirim

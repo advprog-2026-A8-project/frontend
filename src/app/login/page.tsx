@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { gatewayRequest } from "@/lib/gateway-api";
 import { readSession, writeSession } from "@/lib/client-session";
@@ -30,7 +30,7 @@ function safeNextPath(nextPath: string | null) {
   return nextPath;
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState(searchParams.get("email") ?? "");
@@ -125,5 +125,21 @@ export default function LoginPage() {
         </section>
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] px-4 py-10 dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)] sm:px-6">
+          <div className="mx-auto w-full max-w-6xl rounded-3xl border border-slate-200 bg-white p-8 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+            Menyiapkan halaman login...
+          </div>
+        </main>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   );
 }

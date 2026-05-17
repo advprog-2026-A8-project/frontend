@@ -33,6 +33,8 @@ function normalizeLocalDateTime(value: string) {
 
 export default function VouchersPage() {
   const session = useMemo(() => readSession(), []);
+  const role = session.role.toUpperCase();
+  const isAdmin = role.includes("ADMIN");
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [check, setCheck] = useState({ code: "", amount: 100000 });
   const [adminForm, setAdminForm] = useState({
@@ -171,9 +173,11 @@ export default function VouchersPage() {
             <button onClick={loadAvailable} disabled={loading} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">
               {loading ? "Loading..." : "Load Available Voucher"}
             </button>
-            <button onClick={loadAdminList} disabled={loading} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
-              {loading ? "Loading..." : "Load Admin List"}
-            </button>
+            {isAdmin && (
+              <button onClick={loadAdminList} disabled={loading} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
+                {loading ? "Loading..." : "Load Admin List"}
+              </button>
+            )}
           </div>
 
           <form onSubmit={validate} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
@@ -198,35 +202,41 @@ export default function VouchersPage() {
           )}
         </div>
 
-        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-semibold">Voucher Admin Actions</h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            Gunakan form ini untuk create atau update voucher sesuai modul backend voucher.
-          </p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Code" value={adminForm.code} onChange={(e) => setAdminForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Quota" value={adminForm.quota} onChange={(e) => setAdminForm((p) => ({ ...p, quota: Number(e.target.value) }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Discount Value" value={adminForm.discountValue} onChange={(e) => setAdminForm((p) => ({ ...p, discountValue: Number(e.target.value) }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Min Purchase" value={adminForm.minPurchase} onChange={(e) => setAdminForm((p) => ({ ...p, minPurchase: Number(e.target.value) }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Discount Type" value={adminForm.discountType} onChange={(e) => setAdminForm((p) => ({ ...p, discountType: e.target.value }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="Expiry Date" value={adminForm.expiryDate} onChange={(e) => setAdminForm((p) => ({ ...p, expiryDate: e.target.value }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Terms" value={adminForm.termsAndConditions} onChange={(e) => setAdminForm((p) => ({ ...p, termsAndConditions: e.target.value }))} />
-            <label className="flex items-center gap-2 rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700">
-              <input type="checkbox" checked={adminForm.isActive} onChange={(e) => setAdminForm((p) => ({ ...p, isActive: e.target.checked }))} />
-              Active
-            </label>
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Additional Quota" value={adminForm.additionalQuota} onChange={(e) => setAdminForm((p) => ({ ...p, additionalQuota: Number(e.target.value) }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="New Expiry" value={adminForm.newExpiry} onChange={(e) => setAdminForm((p) => ({ ...p, newExpiry: e.target.value }))} />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={createVoucher} disabled={loading} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">
-              Create Voucher
-            </button>
-            <button onClick={updateVoucher} disabled={loading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
-              Update Voucher
-            </button>
-          </div>
-        </section>
+        {isAdmin ? (
+          <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 className="text-lg font-semibold">Voucher Admin Actions</h2>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              Gunakan form ini untuk create atau update voucher sesuai modul backend voucher.
+            </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Code" value={adminForm.code} onChange={(e) => setAdminForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))} />
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Quota" value={adminForm.quota} onChange={(e) => setAdminForm((p) => ({ ...p, quota: Number(e.target.value) }))} />
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Discount Value" value={adminForm.discountValue} onChange={(e) => setAdminForm((p) => ({ ...p, discountValue: Number(e.target.value) }))} />
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Min Purchase" value={adminForm.minPurchase} onChange={(e) => setAdminForm((p) => ({ ...p, minPurchase: Number(e.target.value) }))} />
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Discount Type" value={adminForm.discountType} onChange={(e) => setAdminForm((p) => ({ ...p, discountType: e.target.value }))} />
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="Expiry Date" value={adminForm.expiryDate} onChange={(e) => setAdminForm((p) => ({ ...p, expiryDate: e.target.value }))} />
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Terms" value={adminForm.termsAndConditions} onChange={(e) => setAdminForm((p) => ({ ...p, termsAndConditions: e.target.value }))} />
+              <label className="flex items-center gap-2 rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700">
+                <input type="checkbox" checked={adminForm.isActive} onChange={(e) => setAdminForm((p) => ({ ...p, isActive: e.target.checked }))} />
+                Active
+              </label>
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Additional Quota" value={adminForm.additionalQuota} onChange={(e) => setAdminForm((p) => ({ ...p, additionalQuota: Number(e.target.value) }))} />
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="New Expiry" value={adminForm.newExpiry} onChange={(e) => setAdminForm((p) => ({ ...p, newExpiry: e.target.value }))} />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button onClick={createVoucher} disabled={loading} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">
+                Create Voucher
+              </button>
+              <button onClick={updateVoucher} disabled={loading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
+                Update Voucher
+              </button>
+            </div>
+          </section>
+        ) : (
+          <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800 shadow-sm">
+            Fitur create/update voucher hanya tersedia untuk akun dengan role ADMIN.
+          </section>
+        )}
 
         <section className="mt-6">
           {vouchers.length === 0 ? (

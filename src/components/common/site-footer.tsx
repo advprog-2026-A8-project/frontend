@@ -7,7 +7,7 @@ export function SiteFooter() {
         <div>
           <p className="font-semibold">JaStip Online Nasional</p>
           <p className="mt-1 text-slate-600 dark:text-slate-300">
-            Platform jasa titip untuk barang limited dengan flow transaksi terstruktur.
+            Platform jasa titip nasional untuk alur belanja lintas peran: Titiper, Jastiper, dan Admin.
           </p>
         </div>
         <div>
@@ -16,12 +16,12 @@ export function SiteFooter() {
             <Link href="/catalog" className="hover:underline">Catalog</Link>
             <Link href="/order" className="hover:underline">Order</Link>
             <Link href="/vouchers" className="hover:underline">Voucher</Link>
-            <Link href="/integration" className="hover:underline">Integration Workspace</Link>
+            <Link href="/wallet" className="hover:underline">Wallet</Link>
           </div>
         </div>
         <div>
-          <p className="font-semibold">Flow</p>
-          <p className="mt-1 text-slate-600 dark:text-slate-300">feature -&gt; staging -&gt; main</p>
+          <p className="font-semibold">Akses</p>
+          <p className="mt-1 text-slate-600 dark:text-slate-300">Halaman admin dan jastiper hanya muncul sesuai role akun.</p>
         </div>
       </div>
     </footer>

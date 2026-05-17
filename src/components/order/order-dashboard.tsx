@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
@@ -61,10 +61,12 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
   const session = useMemo(() => readSession(), []);
   const checkoutDraft = useMemo(() => readCheckoutDraft(), []);
   const role = useMemo(() => mapRole(session.role), [session.role]);
+  const canCheckout = role === "titiper";
+  const hasCatalogDraft = Boolean(checkoutDraft?.productId && checkoutDraft?.jastiperId);
   const authHeader = useMemo(() => (session.token ? `Bearer ${session.token}` : undefined), [session.token]);
   const sessionUserId = session.userId.trim();
 
-  const [view, setView] = useState<ViewMode>(initialView);
+  const [view, setView] = useState<ViewMode>(canCheckout ? initialView : "list");
   const [jastiperId, setJastiperId] = useState("");
   const [checkoutForm, setCheckoutForm] = useState({
     productId: checkoutDraft?.productId ?? "",
@@ -126,6 +128,14 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
   async function onCheckoutSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canUseOrder) return;
+    if (!canCheckout) {
+      setError("Checkout hanya dapat dilakukan oleh akun TITIPER.");
+      return;
+    }
+    if (!checkoutForm.productId.trim() || !checkoutForm.jastiperId.trim()) {
+      setError("Pilih produk dari katalog terlebih dahulu sebelum checkout.");
+      return;
+    }
     setLoading(true);
     setError("");
     setMessage("");
@@ -235,15 +245,19 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Order Center</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Kelola Order Jastip Anda</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-            Login sebagai: <span className="font-semibold uppercase">{role}</span> • User ID: {sessionUserId}
+            Login sebagai: <span className="font-semibold uppercase">{role}</span> | User ID: {sessionUserId}
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <Button variant={view === "checkout" ? "default" : "outline"} onClick={() => setView("checkout")}>Checkout</Button>
+            {canCheckout && (
+              <Button variant={view === "checkout" ? "default" : "outline"} onClick={() => setView("checkout")}>
+                Checkout
+              </Button>
+            )}
             <Button variant={view === "list" ? "default" : "outline"} onClick={() => setView("list")}>Lihat Order</Button>
           </div>
         </section>
 
-        {view === "checkout" && (
+        {view === "checkout" && canCheckout && (
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold">Checkout Baru</h2>
             {selectedProductName && (
@@ -251,15 +265,41 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
                 Produk dipilih dari katalog: <span className="font-semibold">{selectedProductName}</span>
               </p>
             )}
+            {!hasCatalogDraft && (
+              <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+                Pilih produk dari halaman katalog agar product dan jastiper otomatis terisi.
+              </p>
+            )}
             <form onSubmit={onCheckoutSubmit} className="mt-4 grid gap-3 md:grid-cols-2">
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Product ID" value={checkoutForm.productId} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, productId: e.target.value }))} required />
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Jastiper ID" value={checkoutForm.jastiperId} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jastiperId: e.target.value }))} required />
+              <input
+                className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950"
+                placeholder="Product ID"
+                value={checkoutForm.productId}
+                onChange={(e) => setCheckoutForm((prev) => ({ ...prev, productId: e.target.value }))}
+                readOnly={hasCatalogDraft}
+                required
+              />
+              <input
+                className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950"
+                placeholder="Jastiper ID"
+                value={checkoutForm.jastiperId}
+                onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jastiperId: e.target.value }))}
+                readOnly={hasCatalogDraft}
+                required
+              />
               <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" type="number" min={1} placeholder="Jumlah" value={checkoutForm.jumlah} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jumlah: Number(e.target.value) }))} required />
               <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Voucher Code (opsional)" value={checkoutForm.voucherCode} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, voucherCode: e.target.value }))} />
               <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" placeholder="Alamat Pengiriman" value={checkoutForm.alamatPengiriman} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, alamatPengiriman: e.target.value }))} required />
               <div className="rounded-lg border border-dashed border-slate-300 p-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300 md:col-span-2">
                 User ID checkout akan otomatis memakai session login: <span className="font-mono">{sessionUserId}</span>
               </div>
+              {hasCatalogDraft && (
+                <div className="md:col-span-2">
+                  <Link href="/catalog" className="text-xs font-semibold text-orange-600 hover:underline dark:text-orange-300">
+                    Ganti produk dari katalog
+                  </Link>
+                </div>
+              )}
               <input className="rounded-lg border border-slate-300 p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950 md:col-span-2" placeholder="Idempotency-Key (opsional)" value={checkoutForm.idempotencyKey} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: e.target.value }))} />
               <div className="md:col-span-2 flex gap-2">
                 <Button type="submit" disabled={loading}>{loading ? "Memproses..." : "Checkout Sekarang"}</Button>
@@ -367,3 +407,4 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
     </main>
   );
 }
+

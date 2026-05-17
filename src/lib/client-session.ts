@@ -21,6 +21,11 @@ export function writeSession(state: SessionState) {
   window.localStorage.setItem(KEY, JSON.stringify(state));
 }
 
+export function clearSession() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(KEY);
+}
+
 export function readCheckoutDraft(): CheckoutDraft | null {
   if (typeof window === "undefined") return null;
   try {

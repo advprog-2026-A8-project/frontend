@@ -16,6 +16,7 @@ export function SiteFooter() {
             <Link href="/catalog" className="hover:underline">Catalog</Link>
             <Link href="/order" className="hover:underline">Order</Link>
             <Link href="/vouchers" className="hover:underline">Voucher</Link>
+            <Link href="/integration" className="hover:underline">Integration Workspace</Link>
           </div>
         </div>
         <div>
@@ -26,4 +27,3 @@ export function SiteFooter() {
     </footer>
   );
 }
-

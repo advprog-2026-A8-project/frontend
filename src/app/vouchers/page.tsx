@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { gatewayRequest } from "@/lib/gateway-api";
+import { readSession } from "@/lib/client-session";
 
 type Voucher = {
   code: string;
@@ -9,13 +10,15 @@ type Voucher = {
   discountValue: number;
   minPurchase: number;
   quota: number;
+  termsAndConditions?: string;
+  expiryDate?: string;
   active: boolean;
 };
 
 type ValidateResult = {
   valid?: boolean;
   discountAmount?: number;
-  finalAmount?: number;
+  finalPrice?: number;
   message?: string;
 };
 
@@ -23,9 +26,27 @@ function formatCurrency(value: number) {
   return `Rp ${Number(value).toLocaleString("id-ID")}`;
 }
 
+function normalizeLocalDateTime(value: string) {
+  if (!value.trim()) return undefined;
+  return value.length === 16 ? `${value}:00` : value;
+}
+
 export default function VouchersPage() {
+  const session = useMemo(() => readSession(), []);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [check, setCheck] = useState({ code: "", amount: 100000 });
+  const [adminForm, setAdminForm] = useState({
+    code: "",
+    quota: 1,
+    discountValue: 10,
+    minPurchase: 0,
+    discountType: "PERCENTAGE",
+    expiryDate: "",
+    termsAndConditions: "",
+    additionalQuota: 0,
+    isActive: true,
+    newExpiry: "",
+  });
   const [result, setResult] = useState<ValidateResult | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -56,6 +77,14 @@ export default function VouchersPage() {
     );
   }
 
+  async function loadAdminList() {
+    await run(
+      () => gatewayRequest<Voucher[]>("voucher", "api/vouchers/admin/list"),
+      (data) => setVouchers(data),
+      "Daftar voucher admin berhasil dimuat."
+    );
+  }
+
   async function validate(event: FormEvent) {
     event.preventDefault();
     await run(
@@ -65,6 +94,52 @@ export default function VouchersPage() {
     );
   }
 
+  async function createVoucher() {
+    await run(
+      () =>
+        gatewayRequest<Voucher>("voucher", "api/vouchers/admin/create", {
+          method: "POST",
+          body: {
+            code: adminForm.code.trim().toUpperCase(),
+            quota: adminForm.quota,
+            discountValue: adminForm.discountValue,
+            minPurchase: adminForm.minPurchase,
+            discountType: adminForm.discountType,
+            expiryDate: normalizeLocalDateTime(adminForm.expiryDate),
+            termsAndConditions: adminForm.termsAndConditions,
+          },
+        }),
+      () => {
+        setAdminForm((prev) => ({ ...prev, code: "", termsAndConditions: "" }));
+      },
+      "Voucher baru berhasil dibuat."
+    );
+    await loadAdminList();
+  }
+
+  async function updateVoucher() {
+    const code = adminForm.code.trim().toUpperCase();
+    if (!code) {
+      setError("Kode voucher wajib diisi untuk update.");
+      return;
+    }
+
+    await run(
+      () =>
+        gatewayRequest<Voucher>("voucher", `api/vouchers/admin/update/${code}`, {
+          method: "PATCH",
+          body: {
+            additionalQuota: adminForm.additionalQuota,
+            isActive: adminForm.isActive,
+            newExpiry: normalizeLocalDateTime(adminForm.newExpiry),
+          },
+        }),
+      () => undefined,
+      "Voucher berhasil diupdate."
+    );
+    await loadAdminList();
+  }
+
   return (
     <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)]">
       <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
@@ -72,6 +147,10 @@ export default function VouchersPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Voucher & Promo</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Maksimalkan Belanja dengan Promo</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Cek voucher aktif, validasi diskon, lalu pakai saat checkout order.</p>
+
+          <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-950/50 dark:text-slate-300">
+            Session role: <span className="font-semibold uppercase">{session.role || "TITIPER"}</span>
+          </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-3">
@@ -88,9 +167,12 @@ export default function VouchersPage() {
             </div>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-2">
             <button onClick={loadAvailable} disabled={loading} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">
               {loading ? "Loading..." : "Load Available Voucher"}
+            </button>
+            <button onClick={loadAdminList} disabled={loading} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
+              {loading ? "Loading..." : "Load Admin List"}
             </button>
           </div>
 
@@ -110,16 +192,46 @@ export default function VouchersPage() {
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Hasil Validasi</p>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">Status: {result.valid ? "Valid" : "Tidak Valid"}</p>
               {typeof result.discountAmount === "number" && <p className="text-sm text-slate-700 dark:text-slate-300">Diskon: {formatCurrency(result.discountAmount)}</p>}
-              {typeof result.finalAmount === "number" && <p className="text-sm text-slate-700 dark:text-slate-300">Total Setelah Diskon: {formatCurrency(result.finalAmount)}</p>}
+              {typeof result.finalPrice === "number" && <p className="text-sm text-slate-700 dark:text-slate-300">Total Setelah Diskon: {formatCurrency(result.finalPrice)}</p>}
               {result.message && <p className="text-sm text-slate-700 dark:text-slate-300">Catatan: {result.message}</p>}
             </div>
           )}
         </div>
 
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold">Voucher Admin Actions</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            Gunakan form ini untuk create atau update voucher sesuai modul backend voucher.
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Code" value={adminForm.code} onChange={(e) => setAdminForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))} />
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Quota" value={adminForm.quota} onChange={(e) => setAdminForm((p) => ({ ...p, quota: Number(e.target.value) }))} />
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Discount Value" value={adminForm.discountValue} onChange={(e) => setAdminForm((p) => ({ ...p, discountValue: Number(e.target.value) }))} />
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Min Purchase" value={adminForm.minPurchase} onChange={(e) => setAdminForm((p) => ({ ...p, minPurchase: Number(e.target.value) }))} />
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Discount Type" value={adminForm.discountType} onChange={(e) => setAdminForm((p) => ({ ...p, discountType: e.target.value }))} />
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="Expiry Date" value={adminForm.expiryDate} onChange={(e) => setAdminForm((p) => ({ ...p, expiryDate: e.target.value }))} />
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Terms" value={adminForm.termsAndConditions} onChange={(e) => setAdminForm((p) => ({ ...p, termsAndConditions: e.target.value }))} />
+            <label className="flex items-center gap-2 rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700">
+              <input type="checkbox" checked={adminForm.isActive} onChange={(e) => setAdminForm((p) => ({ ...p, isActive: e.target.checked }))} />
+              Active
+            </label>
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Additional Quota" value={adminForm.additionalQuota} onChange={(e) => setAdminForm((p) => ({ ...p, additionalQuota: Number(e.target.value) }))} />
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="New Expiry" value={adminForm.newExpiry} onChange={(e) => setAdminForm((p) => ({ ...p, newExpiry: e.target.value }))} />
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button onClick={createVoucher} disabled={loading} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">
+              Create Voucher
+            </button>
+            <button onClick={updateVoucher} disabled={loading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
+              Update Voucher
+            </button>
+          </div>
+        </section>
+
         <section className="mt-6">
           {vouchers.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
-              Belum ada voucher ditampilkan. Klik <span className="font-semibold">Load Available Voucher</span> untuk mulai.
+              Belum ada voucher ditampilkan. Klik <span className="font-semibold">Load Available Voucher</span> atau <span className="font-semibold">Load Admin List</span>.
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -131,10 +243,11 @@ export default function VouchersPage() {
                       {voucher.active ? "Active" : "Inactive"}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{voucher.discountType} • {voucher.discountValue}</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{voucher.discountType} | {voucher.discountValue}</p>
                   <div className="mt-3 space-y-1 text-sm">
                     <p>Min. belanja: {formatCurrency(voucher.minPurchase)}</p>
                     <p>Sisa kuota: {voucher.quota}</p>
+                    <p>Expiry: {voucher.expiryDate ? voucher.expiryDate : "-"}</p>
                   </div>
                   <button onClick={() => setCheck((prev) => ({ ...prev, code: voucher.code }))} className="mt-4 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold transition hover:border-slate-500 dark:border-slate-700">
                     Pakai Kode Ini

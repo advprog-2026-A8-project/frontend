@@ -4,7 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { orderApi } from "@/lib/order-api";
-import { readSession } from "@/lib/client-session";
+import { clearCheckoutDraft, readCheckoutDraft, readSession } from "@/lib/client-session";
 import { Order, OrderStatus } from "@/types/order";
 
 type Role = "titiper" | "jastiper" | "admin";
@@ -59,6 +59,7 @@ function mapRole(raw: string): Role {
 
 export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps) {
   const session = useMemo(() => readSession(), []);
+  const checkoutDraft = useMemo(() => readCheckoutDraft(), []);
   const role = useMemo(() => mapRole(session.role), [session.role]);
   const authHeader = useMemo(() => (session.token ? `Bearer ${session.token}` : undefined), [session.token]);
   const sessionUserId = session.userId.trim();
@@ -66,13 +67,14 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
   const [view, setView] = useState<ViewMode>(initialView);
   const [jastiperId, setJastiperId] = useState("");
   const [checkoutForm, setCheckoutForm] = useState({
-    productId: "",
-    jastiperId: "",
+    productId: checkoutDraft?.productId ?? "",
+    jastiperId: checkoutDraft?.jastiperId ?? "",
     jumlah: 1,
     alamatPengiriman: "",
     voucherCode: "",
     idempotencyKey: newIdempotencyKey(),
   });
+  const [selectedProductName] = useState(checkoutDraft?.productName ?? "");
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, { jastiperRating: number; productRating: number }>>(
     {}
   );
@@ -148,6 +150,7 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
         voucherCode: "",
         idempotencyKey: newIdempotencyKey(),
       });
+      clearCheckoutDraft();
       setView("list");
       await loadOrders();
     } catch (err) {
@@ -243,6 +246,11 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
         {view === "checkout" && (
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold">Checkout Baru</h2>
+            {selectedProductName && (
+              <p className="mt-2 rounded-lg border border-emerald-300 bg-emerald-50 p-2 text-xs text-emerald-700">
+                Produk dipilih dari katalog: <span className="font-semibold">{selectedProductName}</span>
+              </p>
+            )}
             <form onSubmit={onCheckoutSubmit} className="mt-4 grid gap-3 md:grid-cols-2">
               <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Product ID" value={checkoutForm.productId} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, productId: e.target.value }))} required />
               <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Jastiper ID" value={checkoutForm.jastiperId} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jastiperId: e.target.value }))} required />

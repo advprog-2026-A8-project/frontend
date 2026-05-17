@@ -1,7 +1,9 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { gatewayRequest } from "@/lib/gateway-api";
+import { writeCheckoutDraft } from "@/lib/client-session";
 
 type Product = {
   id?: string;
@@ -18,12 +20,20 @@ function formatCurrency(value: number) {
   return `Rp ${Number(value).toLocaleString("id-ID")}`;
 }
 
+function formatLastUpdate(iso: string | null) {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleTimeString("id-ID", { hour12: false });
+}
+
 export default function CatalogPage() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
   const [stockFilter, setStockFilter] = useState<"all" | "in-stock" | "out-of-stock">("all");
   const [countryFilter, setCountryFilter] = useState("all");
   const [minPrice, setMinPrice] = useState("");
@@ -86,6 +96,7 @@ export default function CatalogPage() {
     try {
       const data = await action();
       setProducts(data);
+      setLastLoadedAt(new Date().toISOString());
       if (successMessage) setMessage(successMessage);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan saat memuat katalog.");
@@ -111,6 +122,35 @@ export default function CatalogPage() {
     );
   }
 
+  function checkoutFromProduct(product: Product) {
+    if (!product.id || !product.jastiperId) return;
+    writeCheckoutDraft({
+      productId: product.id,
+      jastiperId: product.jastiperId,
+      productName: product.name,
+    });
+    router.push("/order");
+  }
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  useEffect(() => {
+    if (!autoRefresh || search.trim()) return;
+    const id = window.setInterval(async () => {
+      try {
+        const data = await gatewayRequest<Product[]>("inventory", "api/products/list");
+        setProducts(data);
+        setLastLoadedAt(new Date().toISOString());
+      } catch {
+        // keep existing product state if polling fails
+      }
+    }, 15000);
+
+    return () => window.clearInterval(id);
+  }, [autoRefresh, search]);
+
   return (
     <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)]">
       <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6">
@@ -118,7 +158,7 @@ export default function CatalogPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Catalog</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Cari Produk Titipan dari Berbagai Negara</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-            Jelajahi barang titipan, cek stok, lalu lanjutkan checkout di modul order.
+            Jelajahi barang titipan, cek stok live, lalu checkout langsung dari kartu produk.
           </p>
 
           <form onSubmit={doSearch} className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
@@ -135,6 +175,14 @@ export default function CatalogPage() {
               {loading ? "Loading..." : "Load All"}
             </button>
           </form>
+
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+            <label className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 dark:border-slate-700">
+              <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+              Auto refresh stok (15 detik)
+            </label>
+            <span>Terakhir update: {formatLastUpdate(lastLoadedAt)}</span>
+          </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-3">
@@ -159,7 +207,7 @@ export default function CatalogPage() {
               </button>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              <select className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={stockFilter} onChange={(e) => setStockFilter(e.target.value as "all" | "in-stock" | "out-of-stock")}>
+              <select className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={stockFilter} onChange={(e) => setStockFilter(e.target.value as "all" | "in-stock" | "out-of-stock")}> 
                 <option value="all">Semua Stok</option>
                 <option value="in-stock">In Stock</option>
                 <option value="out-of-stock">Out of Stock</option>
@@ -177,7 +225,7 @@ export default function CatalogPage() {
               <input className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" type="number" min={0} placeholder="Harga minimum" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
               <input className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" type="number" min={0} placeholder="Harga maksimum" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
 
-              <select className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={sortBy} onChange={(e) => setSortBy(e.target.value as "default" | "price-asc" | "price-desc" | "name-asc")}>
+              <select className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={sortBy} onChange={(e) => setSortBy(e.target.value as "default" | "price-asc" | "price-desc" | "name-asc")}> 
                 <option value="default">Urutkan</option>
                 <option value="price-asc">Harga Termurah</option>
                 <option value="price-desc">Harga Termahal</option>
@@ -197,24 +245,35 @@ export default function CatalogPage() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredProducts.map((product) => (
-                <article key={product.id ?? `${product.name}-${product.purchaseDate}`} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-xs text-slate-500">{product.id ?? "-"}</p>
-                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${product.stock > 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                      {product.stock > 0 ? "In Stock" : "Out of Stock"}
-                    </span>
-                  </div>
-                  <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{product.name}</h2>
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{product.description}</p>
-                  <p className="mt-3 text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(product.price)}</p>
-                  <div className="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
-                    <p>Stok: {product.stock}</p>
-                    <p>Asal: {product.originCountry}</p>
-                    <p>Jastiper: {product.jastiperId ?? "-"}</p>
-                  </div>
-                </article>
-              ))}
+              {filteredProducts.map((product) => {
+                const checkoutDisabled = !product.id || !product.jastiperId || product.stock <= 0;
+                return (
+                  <article key={product.id ?? `${product.name}-${product.purchaseDate}`} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="truncate text-xs text-slate-500">{product.id ?? "-"}</p>
+                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${product.stock > 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                        {product.stock > 0 ? "In Stock" : "Out of Stock"}
+                      </span>
+                    </div>
+                    <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{product.name}</h2>
+                    <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{product.description}</p>
+                    <p className="mt-3 text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(product.price)}</p>
+                    <div className="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                      <p>Stok: {product.stock}</p>
+                      <p>Asal: {product.originCountry}</p>
+                      <p>Jastiper: {product.jastiperId ?? "-"}</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={checkoutDisabled}
+                      onClick={() => checkoutFromProduct(product)}
+                      className="mt-4 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-slate-100 dark:text-slate-900 dark:disabled:bg-slate-700"
+                    >
+                      Checkout Produk Ini
+                    </button>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>

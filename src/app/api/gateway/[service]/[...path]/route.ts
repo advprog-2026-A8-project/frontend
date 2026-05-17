@@ -1,12 +1,12 @@
 ﻿import { NextRequest, NextResponse } from "next/server";
 
 const SERVICE_URLS: Record<string, string | undefined> = {
-  order: process.env.ORDER_BACKEND_URL ?? process.env.NEXT_PUBLIC_ORDER_BACKEND_URL,
+  auth: process.env.AUTH_BACKEND_URL ?? process.env.NEXT_PUBLIC_AUTH_BACKEND_URL ?? "http://localhost:3002",
   inventory:
-    process.env.INVENTORY_BACKEND_URL ?? process.env.NEXT_PUBLIC_INVENTORY_BACKEND_URL,
-  voucher: process.env.VOUCHER_BACKEND_URL ?? process.env.NEXT_PUBLIC_VOUCHER_BACKEND_URL,
-  wallet: process.env.WALLET_BACKEND_URL ?? process.env.NEXT_PUBLIC_WALLET_BACKEND_URL,
-  auth: process.env.AUTH_BACKEND_URL ?? process.env.NEXT_PUBLIC_AUTH_BACKEND_URL,
+    process.env.INVENTORY_BACKEND_URL ?? process.env.NEXT_PUBLIC_INVENTORY_BACKEND_URL ?? "http://localhost:4002",
+  order: process.env.ORDER_BACKEND_URL ?? process.env.NEXT_PUBLIC_ORDER_BACKEND_URL ?? "http://localhost:5002",
+  wallet: process.env.WALLET_BACKEND_URL ?? process.env.NEXT_PUBLIC_WALLET_BACKEND_URL ?? "http://localhost:6002",
+  voucher: process.env.VOUCHER_BACKEND_URL ?? process.env.NEXT_PUBLIC_VOUCHER_BACKEND_URL ?? "http://localhost:7002",
 };
 
 type RouteContext = {

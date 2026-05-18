@@ -90,6 +90,26 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  function pickUser(user: UserProfile) {
+    setAdminForm((prev) => ({
+      ...prev,
+      userId: user.id,
+      status: user.accountStatus ?? prev.status,
+    }));
+  }
+
+  function pickVoucher(voucher: Voucher) {
+    setVoucherForm((prev) => ({
+      ...prev,
+      code: voucher.code,
+      discountType: voucher.discountType,
+      discountValue: Number(voucher.discountValue ?? prev.discountValue),
+      minPurchase: Number(voucher.minPurchase ?? prev.minPurchase),
+      quota: Number(voucher.quota ?? prev.quota),
+      isActive: Boolean(voucher.active),
+    }));
+  }
+
   useEffect(() => {
     if (!isAuthenticated) {
       router.replace("/login?next=/admin");
@@ -281,6 +301,9 @@ export default function AdminPage() {
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-semibold">Admin User Controls</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            Pilih user dari daftar di bawah agar target User ID terisi otomatis.
+          </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Target User ID" value={adminForm.userId} onChange={(e) => setAdminForm((prev) => ({ ...prev, userId: e.target.value }))} />
             <select
@@ -324,13 +347,22 @@ export default function AdminPage() {
 
           <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {users.map((user) => (
-              <article key={user.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+              <article key={user.id} className={`rounded-lg border p-3 ${adminForm.userId === user.id ? "border-slate-500 bg-slate-50 dark:border-slate-500 dark:bg-slate-950/60" : "border-slate-200 dark:border-slate-800"}`}>
                 <p className="font-semibold">{user.username}</p>
                 <p className="truncate text-xs text-slate-500">{user.id}</p>
                 <p className="text-xs">{user.email}</p>
                 <p className="text-xs">Role: {user.role}</p>
                 <p className="text-xs">Account: {user.accountStatus ?? "-"}</p>
                 <p className="text-xs">KYC: {user.kycStatus ?? "-"}</p>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => pickUser(user)}
+                    className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-semibold dark:border-slate-700"
+                  >
+                    Pilih sebagai Target
+                  </button>
+                </div>
               </article>
             ))}
           </div>
@@ -382,6 +414,15 @@ export default function AdminPage() {
                 <p className="text-xs">Min Purchase: {voucher.minPurchase}</p>
                 <p className="text-xs">Quota: {voucher.quota}</p>
                 <p className="text-xs">Expiry: {voucher.expiryDate ?? "-"}</p>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => pickVoucher(voucher)}
+                    className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-semibold dark:border-slate-700"
+                  >
+                    Isi ke Form
+                  </button>
+                </div>
               </article>
             ))}
           </div>

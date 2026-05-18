@@ -182,10 +182,22 @@ export default function ProfilePage() {
             <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Edit Informasi Profil</h2>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Pastikan informasi profil valid untuk memperlancar transaksi.</p>
             <form onSubmit={updateProfile} className="mt-5 grid gap-3">
-              <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Username" value={form.username} onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))} />
-              <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Nama lengkap" value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} />
-              <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Nomor telepon" value={form.phoneNumber} onChange={(e) => setForm((prev) => ({ ...prev, phoneNumber: e.target.value }))} />
-              <textarea className="min-h-24 rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Bio singkat" value={form.bio} onChange={(e) => setForm((prev) => ({ ...prev, bio: e.target.value }))} />
+              <label className="grid gap-1 text-sm">
+                Username
+                <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Username" value={form.username} onChange={(e) => setForm((prev) => ({ ...prev, username: e.target.value }))} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Nama lengkap
+                <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Nama lengkap" value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Nomor telepon
+                <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Nomor telepon" value={form.phoneNumber} onChange={(e) => setForm((prev) => ({ ...prev, phoneNumber: e.target.value }))} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Bio singkat
+                <textarea className="min-h-24 rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Bio singkat" value={form.bio} onChange={(e) => setForm((prev) => ({ ...prev, bio: e.target.value }))} />
+              </label>
               <button className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900" disabled={loading}>
                 Simpan Profil
               </button>
@@ -196,9 +208,18 @@ export default function ProfilePage() {
             <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Pengajuan KYC Jastiper</h2>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Ajukan KYC jika Anda ingin menjalankan flow sebagai jastiper.</p>
             <form onSubmit={submitKyc} className="mt-5 grid gap-3">
-              <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Nama lengkap sesuai identitas" value={kycForm.fullName} onChange={(e) => setKycForm((prev) => ({ ...prev, fullName: e.target.value }))} required />
-              <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="URL dokumen identitas" value={kycForm.identityDocumentUrl} onChange={(e) => setKycForm((prev) => ({ ...prev, identityDocumentUrl: e.target.value }))} />
-              <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="URL media sosial" value={kycForm.socialMediaUrl} onChange={(e) => setKycForm((prev) => ({ ...prev, socialMediaUrl: e.target.value }))} />
+              <label className="grid gap-1 text-sm">
+                Nama lengkap sesuai identitas
+                <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Nama lengkap sesuai identitas" value={kycForm.fullName} onChange={(e) => setKycForm((prev) => ({ ...prev, fullName: e.target.value }))} required />
+              </label>
+              <label className="grid gap-1 text-sm">
+                URL dokumen identitas
+                <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="URL dokumen identitas" value={kycForm.identityDocumentUrl} onChange={(e) => setKycForm((prev) => ({ ...prev, identityDocumentUrl: e.target.value }))} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                URL media sosial
+                <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="URL media sosial" value={kycForm.socialMediaUrl} onChange={(e) => setKycForm((prev) => ({ ...prev, socialMediaUrl: e.target.value }))} />
+              </label>
               <button className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700" disabled={loading}>
                 Submit KYC
               </button>

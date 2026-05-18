@@ -68,6 +68,7 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
 
   const [view, setView] = useState<ViewMode>(canCheckout ? initialView : "list");
   const [jastiperId, setJastiperId] = useState("");
+  const [useManualIds, setUseManualIds] = useState(!hasCatalogDraft);
   const [checkoutForm, setCheckoutForm] = useState({
     productId: checkoutDraft?.productId ?? "",
     jastiperId: checkoutDraft?.jastiperId ?? "",
@@ -160,6 +161,7 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
         voucherCode: "",
         idempotencyKey: newIdempotencyKey(),
       });
+      setUseManualIds(false);
       clearCheckoutDraft();
       setView("list");
       await loadOrders();
@@ -271,36 +273,70 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
               </p>
             )}
             <form onSubmit={onCheckoutSubmit} className="mt-4 grid gap-3 md:grid-cols-2">
-              <input
-                className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950"
-                placeholder="Product ID"
-                value={checkoutForm.productId}
-                onChange={(e) => setCheckoutForm((prev) => ({ ...prev, productId: e.target.value }))}
-                readOnly={hasCatalogDraft}
-                required
-              />
-              <input
-                className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950"
-                placeholder="Jastiper ID"
-                value={checkoutForm.jastiperId}
-                onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jastiperId: e.target.value }))}
-                readOnly={hasCatalogDraft}
-                required
-              />
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" type="number" min={1} placeholder="Jumlah" value={checkoutForm.jumlah} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jumlah: Number(e.target.value) }))} required />
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Voucher Code (opsional)" value={checkoutForm.voucherCode} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, voucherCode: e.target.value }))} />
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" placeholder="Alamat Pengiriman" value={checkoutForm.alamatPengiriman} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, alamatPengiriman: e.target.value }))} required />
+              {hasCatalogDraft && !useManualIds ? (
+                <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-950/60 md:col-span-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Produk Checkout</p>
+                  <p className="mt-1 font-semibold">{selectedProductName || "-"}</p>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Product ID: <span className="font-mono">{checkoutForm.productId}</span></p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">Jastiper ID: <span className="font-mono">{checkoutForm.jastiperId}</span></p>
+                </div>
+              ) : (
+                <>
+                  <label className="grid gap-1 text-sm">
+                    Product ID
+                    <input
+                      className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950"
+                      placeholder="Product ID"
+                      value={checkoutForm.productId}
+                      onChange={(e) => setCheckoutForm((prev) => ({ ...prev, productId: e.target.value }))}
+                      required
+                    />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    Jastiper ID
+                    <input
+                      className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950"
+                      placeholder="Jastiper ID"
+                      value={checkoutForm.jastiperId}
+                      onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jastiperId: e.target.value }))}
+                      required
+                    />
+                  </label>
+                </>
+              )}
+              <label className="grid gap-1 text-sm">
+                Jumlah
+                <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" type="number" min={1} placeholder="Jumlah" value={checkoutForm.jumlah} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jumlah: Number(e.target.value) }))} required />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Voucher Code (opsional)
+                <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Voucher Code (opsional)" value={checkoutForm.voucherCode} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, voucherCode: e.target.value }))} />
+              </label>
+              <label className="grid gap-1 text-sm md:col-span-2">
+                Alamat Pengiriman
+                <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Alamat Pengiriman" value={checkoutForm.alamatPengiriman} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, alamatPengiriman: e.target.value }))} required />
+              </label>
               <div className="rounded-lg border border-dashed border-slate-300 p-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300 md:col-span-2">
                 User ID checkout akan otomatis memakai session login: <span className="font-mono">{sessionUserId}</span>
               </div>
               {hasCatalogDraft && (
-                <div className="md:col-span-2">
+                <div className="flex flex-wrap gap-3 md:col-span-2">
                   <Link href="/catalog" className="text-xs font-semibold text-slate-600 hover:underline dark:text-slate-300">
                     Ganti produk dari katalog
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => setUseManualIds((prev) => !prev)}
+                    className="text-xs font-semibold text-slate-600 hover:underline dark:text-slate-300"
+                  >
+                    {useManualIds ? "Kunci ke produk katalog" : "Gunakan input ID manual"}
+                  </button>
                 </div>
               )}
-              <input className="rounded-lg border border-slate-300 p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950 md:col-span-2" placeholder="Idempotency-Key (opsional)" value={checkoutForm.idempotencyKey} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: e.target.value }))} />
+              <label className="grid gap-1 text-sm md:col-span-2">
+                Idempotency-Key (opsional)
+                <input className="rounded-lg border border-slate-300 p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Idempotency-Key (opsional)" value={checkoutForm.idempotencyKey} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: e.target.value }))} />
+              </label>
               <div className="md:col-span-2 flex gap-2">
                 <Button type="submit" disabled={loading}>{loading ? "Memproses..." : "Checkout Sekarang"}</Button>
                 <Button type="button" variant="outline" onClick={() => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: newIdempotencyKey() }))}>Generate Key</Button>

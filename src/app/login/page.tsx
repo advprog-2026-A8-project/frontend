@@ -106,8 +106,14 @@ function LoginPageContent() {
             </p>
           )}
           <form onSubmit={onSubmit} className="mt-5 grid gap-3">
-            <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <label className="grid gap-1 text-sm">
+              Email
+              <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Password
+              <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            </label>
             <button className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-300" disabled={loading}>
               {loading ? "Loading..." : "Login"}
             </button>

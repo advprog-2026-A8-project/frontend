@@ -188,8 +188,14 @@ export default function VouchersPage() {
           </div>
 
           <form onSubmit={validate} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-            <input className="rounded-xl border border-slate-300 p-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" placeholder="Kode voucher" value={check.code} onChange={(e) => setCheck((p) => ({ ...p, code: e.target.value.toUpperCase() }))} required />
-            <input className="rounded-xl border border-slate-300 p-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" type="number" min={0} placeholder="Nominal belanja" value={check.amount} onChange={(e) => setCheck((p) => ({ ...p, amount: Number(e.target.value) }))} required />
+            <label className="grid gap-1 text-sm">
+              Kode voucher
+              <input className="rounded-xl border border-slate-300 p-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" placeholder="Kode voucher" value={check.code} onChange={(e) => setCheck((p) => ({ ...p, code: e.target.value.toUpperCase() }))} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Nominal belanja
+              <input className="rounded-xl border border-slate-300 p-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" type="number" min={0} placeholder="Nominal belanja" value={check.amount} onChange={(e) => setCheck((p) => ({ ...p, amount: Number(e.target.value) }))} required />
+            </label>
             <button disabled={loading} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
               Validasi
             </button>

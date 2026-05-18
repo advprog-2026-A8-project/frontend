@@ -62,14 +62,47 @@ function formatLastUpdate(iso: string | null) {
   return new Date(iso).toLocaleTimeString("id-ID", { hour12: false });
 }
 
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const normalized = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+    const json = atob(normalized);
+    const parsed = JSON.parse(json);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function jwtUserId(payload: Record<string, unknown> | null): string {
+  if (!payload) return "";
+  const direct = payload.userId;
+  if (typeof direct === "string") return direct;
+  const fallback = payload.id;
+  return typeof fallback === "string" ? fallback : "";
+}
+
+function checkoutForbiddenMessage() {
+  return "Checkout ditolak karena token login belum memuat claim userId (UUID). Logout lalu login ulang setelah backend auth terbaru aktif.";
+}
+
 export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps) {
   const session = useMemo(() => readSession(), []);
   const checkoutDraft = useMemo(() => readCheckoutDraft(), []);
   const role = useMemo(() => mapRole(session.role), [session.role]);
+  const tokenPayload = useMemo(() => decodeJwtPayload(session.token), [session.token]);
+  const tokenUserId = useMemo(() => jwtUserId(tokenPayload), [tokenPayload]);
   const canCheckout = role === "titiper";
   const hasCatalogDraft = Boolean(checkoutDraft?.productId && checkoutDraft?.jastiperId);
   const authHeader = useMemo(() => (session.token ? `Bearer ${session.token}` : undefined), [session.token]);
   const sessionUserId = session.userId.trim();
+  const hasTokenUserIdClaim = Boolean(tokenUserId.trim());
+  const tokenUserIdMismatch = Boolean(
+    hasTokenUserIdClaim && sessionUserId && tokenUserId.trim() !== sessionUserId
+  );
 
   const [view, setView] = useState<ViewMode>(canCheckout ? initialView : "list");
   const [jastiperId, setJastiperId] = useState("");
@@ -141,6 +174,14 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
       setError("Checkout hanya dapat dilakukan oleh akun TITIPER.");
       return;
     }
+    if (!hasTokenUserIdClaim) {
+      setError(checkoutForbiddenMessage());
+      return;
+    }
+    if (tokenUserIdMismatch) {
+      setError("Token login tidak sinkron dengan user profile. Logout lalu login ulang sebelum checkout.");
+      return;
+    }
     if (!checkoutForm.productId.trim() || !checkoutForm.jastiperId.trim()) {
       setError("Pilih produk dari katalog terlebih dahulu sebelum checkout.");
       return;
@@ -174,7 +215,8 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
       setView("list");
       await loadOrders();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Checkout gagal.");
+      const message = err instanceof Error ? err.message : "Checkout gagal.";
+      setError(message.toLowerCase().includes("forbidden") ? checkoutForbiddenMessage() : message);
       setLoading(false);
     }
   }
@@ -270,6 +312,16 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
             Login sebagai: <span className="font-semibold uppercase">{role}</span> | User ID: {sessionUserId}
           </p>
+          {canCheckout && !hasTokenUserIdClaim && (
+            <p className="mt-3 rounded-lg border border-slate-300 bg-slate-100 p-3 text-xs text-slate-700">
+              Token sesi Anda belum memuat `userId` untuk validasi checkout. Silakan login ulang setelah backend auth terbaru dijalankan.
+            </p>
+          )}
+          {canCheckout && tokenUserIdMismatch && (
+            <p className="mt-3 rounded-lg border border-slate-300 bg-slate-100 p-3 text-xs text-slate-700">
+              User ID pada token dan session profile berbeda. Logout lalu login ulang agar checkout tidak ditolak.
+            </p>
+          )}
           <div className="mt-5 flex flex-wrap gap-2">
             {canCheckout && (
               <Button variant={view === "checkout" ? "default" : "outline"} onClick={() => setView("checkout")}>

@@ -305,27 +305,39 @@ export default function AdminPage() {
             Pilih user dari daftar di bawah agar target User ID terisi otomatis.
           </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Target User ID" value={adminForm.userId} onChange={(e) => setAdminForm((prev) => ({ ...prev, userId: e.target.value }))} />
-            <select
-              className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-              value={adminForm.decision}
-              onChange={(e) => setAdminForm((prev) => ({ ...prev, decision: e.target.value }))}
-            >
-              <option value="APPROVED">APPROVED</option>
-              <option value="REJECTED">REJECTED</option>
-              <option value="APPROVE">APPROVE</option>
-              <option value="REJECT">REJECT</option>
-            </select>
-            <select
-              className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-              value={adminForm.status}
-              onChange={(e) => setAdminForm((prev) => ({ ...prev, status: e.target.value }))}
-            >
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="BANNED">BANNED</option>
-              <option value="PENDING">PENDING</option>
-            </select>
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Delta" value={adminForm.delta} onChange={(e) => setAdminForm((prev) => ({ ...prev, delta: Number(e.target.value) }))} />
+            <label className="grid gap-1 text-sm">
+              Target User ID
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Target User ID" value={adminForm.userId} onChange={(e) => setAdminForm((prev) => ({ ...prev, userId: e.target.value }))} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              KYC Decision
+              <select
+                className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                value={adminForm.decision}
+                onChange={(e) => setAdminForm((prev) => ({ ...prev, decision: e.target.value }))}
+              >
+                <option value="APPROVED">APPROVED</option>
+                <option value="REJECTED">REJECTED</option>
+                <option value="APPROVE">APPROVE</option>
+                <option value="REJECT">REJECT</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              Status akun
+              <select
+                className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                value={adminForm.status}
+                onChange={(e) => setAdminForm((prev) => ({ ...prev, status: e.target.value }))}
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="BANNED">BANNED</option>
+                <option value="PENDING">PENDING</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              Delta statistik
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Delta" value={adminForm.delta} onChange={(e) => setAdminForm((prev) => ({ ...prev, delta: Number(e.target.value) }))} />
+            </label>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <button onClick={() => adminAction("api/profile/admin/role/upgrade", { userId: adminForm.userId }, "Role user berhasil di-upgrade.")} disabled={loading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">
@@ -371,26 +383,53 @@ export default function AdminPage() {
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-semibold">Voucher Admin Controls</h2>
           <form onSubmit={createVoucher} className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Code" value={voucherForm.code} onChange={(e) => setVoucherForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))} required />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Quota" value={voucherForm.quota} onChange={(e) => setVoucherForm((prev) => ({ ...prev, quota: Number(e.target.value) }))} required />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Discount Value" value={voucherForm.discountValue} onChange={(e) => setVoucherForm((prev) => ({ ...prev, discountValue: Number(e.target.value) }))} required />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Min Purchase" value={voucherForm.minPurchase} onChange={(e) => setVoucherForm((prev) => ({ ...prev, minPurchase: Number(e.target.value) }))} required />
-            <select
-              className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-              value={voucherForm.discountType}
-              onChange={(e) => setVoucherForm((prev) => ({ ...prev, discountType: e.target.value }))}
-            >
-              <option value="PERCENTAGE">PERCENTAGE</option>
-              <option value="FIXED_AMOUNT">FIXED_AMOUNT</option>
-            </select>
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="Expiry Date" value={voucherForm.expiryDate} onChange={(e) => setVoucherForm((prev) => ({ ...prev, expiryDate: e.target.value }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Terms and Conditions" value={voucherForm.termsAndConditions} onChange={(e) => setVoucherForm((prev) => ({ ...prev, termsAndConditions: e.target.value }))} />
+            <label className="grid gap-1 text-sm">
+              Code
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Code" value={voucherForm.code} onChange={(e) => setVoucherForm((prev) => ({ ...prev, code: e.target.value.toUpperCase() }))} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Quota
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Quota" value={voucherForm.quota} onChange={(e) => setVoucherForm((prev) => ({ ...prev, quota: Number(e.target.value) }))} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Discount Value
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Discount Value" value={voucherForm.discountValue} onChange={(e) => setVoucherForm((prev) => ({ ...prev, discountValue: Number(e.target.value) }))} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Minimum Purchase
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Min Purchase" value={voucherForm.minPurchase} onChange={(e) => setVoucherForm((prev) => ({ ...prev, minPurchase: Number(e.target.value) }))} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Discount Type
+              <select
+                className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                value={voucherForm.discountType}
+                onChange={(e) => setVoucherForm((prev) => ({ ...prev, discountType: e.target.value }))}
+              >
+                <option value="PERCENTAGE">PERCENTAGE</option>
+                <option value="FIXED_AMOUNT">FIXED_AMOUNT</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              Expiry Date
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="Expiry Date" value={voucherForm.expiryDate} onChange={(e) => setVoucherForm((prev) => ({ ...prev, expiryDate: e.target.value }))} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Terms and Conditions
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Terms and Conditions" value={voucherForm.termsAndConditions} onChange={(e) => setVoucherForm((prev) => ({ ...prev, termsAndConditions: e.target.value }))} />
+            </label>
             <label className="flex items-center gap-2 rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700">
               <input type="checkbox" checked={voucherForm.isActive} onChange={(e) => setVoucherForm((prev) => ({ ...prev, isActive: e.target.checked }))} />
               Active
             </label>
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Additional Quota" value={voucherForm.additionalQuota} onChange={(e) => setVoucherForm((prev) => ({ ...prev, additionalQuota: Number(e.target.value) }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="New Expiry" value={voucherForm.newExpiry} onChange={(e) => setVoucherForm((prev) => ({ ...prev, newExpiry: e.target.value }))} />
+            <label className="grid gap-1 text-sm">
+              Additional Quota
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Additional Quota" value={voucherForm.additionalQuota} onChange={(e) => setVoucherForm((prev) => ({ ...prev, additionalQuota: Number(e.target.value) }))} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              New Expiry
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="New Expiry" value={voucherForm.newExpiry} onChange={(e) => setVoucherForm((prev) => ({ ...prev, newExpiry: e.target.value }))} />
+            </label>
             <div className="flex gap-2 sm:col-span-2 xl:col-span-4">
               <button className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900" disabled={loading}>
                 Create Voucher

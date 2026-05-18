@@ -226,26 +226,53 @@ export default function VouchersPage() {
               Gunakan form ini untuk create atau update voucher sesuai modul backend voucher.
             </p>
             <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Code" value={adminForm.code} onChange={(e) => setAdminForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))} />
-              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Quota" value={adminForm.quota} onChange={(e) => setAdminForm((p) => ({ ...p, quota: Number(e.target.value) }))} />
-              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Discount Value" value={adminForm.discountValue} onChange={(e) => setAdminForm((p) => ({ ...p, discountValue: Number(e.target.value) }))} />
-              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Min Purchase" value={adminForm.minPurchase} onChange={(e) => setAdminForm((p) => ({ ...p, minPurchase: Number(e.target.value) }))} />
-              <select
-                className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-                value={adminForm.discountType}
-                onChange={(e) => setAdminForm((p) => ({ ...p, discountType: e.target.value }))}
-              >
-                <option value="PERCENTAGE">PERCENTAGE</option>
-                <option value="FIXED_AMOUNT">FIXED_AMOUNT</option>
-              </select>
-              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="Expiry Date" value={adminForm.expiryDate} onChange={(e) => setAdminForm((p) => ({ ...p, expiryDate: e.target.value }))} />
-              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Terms" value={adminForm.termsAndConditions} onChange={(e) => setAdminForm((p) => ({ ...p, termsAndConditions: e.target.value }))} />
+              <label className="grid gap-1 text-sm">
+                Code
+                <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Code" value={adminForm.code} onChange={(e) => setAdminForm((p) => ({ ...p, code: e.target.value.toUpperCase() }))} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Quota
+                <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Quota" value={adminForm.quota} onChange={(e) => setAdminForm((p) => ({ ...p, quota: Number(e.target.value) }))} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Discount Value
+                <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Discount Value" value={adminForm.discountValue} onChange={(e) => setAdminForm((p) => ({ ...p, discountValue: Number(e.target.value) }))} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Minimum Purchase
+                <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Min Purchase" value={adminForm.minPurchase} onChange={(e) => setAdminForm((p) => ({ ...p, minPurchase: Number(e.target.value) }))} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Discount Type
+                <select
+                  className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                  value={adminForm.discountType}
+                  onChange={(e) => setAdminForm((p) => ({ ...p, discountType: e.target.value }))}
+                >
+                  <option value="PERCENTAGE">PERCENTAGE</option>
+                  <option value="FIXED_AMOUNT">FIXED_AMOUNT</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-sm">
+                Expiry Date
+                <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="Expiry Date" value={adminForm.expiryDate} onChange={(e) => setAdminForm((p) => ({ ...p, expiryDate: e.target.value }))} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Terms
+                <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Terms" value={adminForm.termsAndConditions} onChange={(e) => setAdminForm((p) => ({ ...p, termsAndConditions: e.target.value }))} />
+              </label>
               <label className="flex items-center gap-2 rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700">
                 <input type="checkbox" checked={adminForm.isActive} onChange={(e) => setAdminForm((p) => ({ ...p, isActive: e.target.checked }))} />
                 Active
               </label>
-              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Additional Quota" value={adminForm.additionalQuota} onChange={(e) => setAdminForm((p) => ({ ...p, additionalQuota: Number(e.target.value) }))} />
-              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="New Expiry" value={adminForm.newExpiry} onChange={(e) => setAdminForm((p) => ({ ...p, newExpiry: e.target.value }))} />
+              <label className="grid gap-1 text-sm">
+                Additional Quota
+                <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Additional Quota" value={adminForm.additionalQuota} onChange={(e) => setAdminForm((p) => ({ ...p, additionalQuota: Number(e.target.value) }))} />
+              </label>
+              <label className="grid gap-1 text-sm">
+                New Expiry
+                <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="New Expiry" value={adminForm.newExpiry} onChange={(e) => setAdminForm((p) => ({ ...p, newExpiry: e.target.value }))} />
+              </label>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button onClick={createVoucher} disabled={loading} className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">

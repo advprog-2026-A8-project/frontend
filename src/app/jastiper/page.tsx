@@ -280,13 +280,34 @@ export default function JastiperPage() {
             Untuk update atau delete, pilih produk dari kartu katalog agar form terisi otomatis.
           </p>
           <form onSubmit={createProduct} className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Product ID (update/delete)" value={productForm.id} onChange={(e) => setProductForm((prev) => ({ ...prev, id: e.target.value }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Nama produk" value={productForm.name} onChange={(e) => setProductForm((prev) => ({ ...prev, name: e.target.value }))} required />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Deskripsi" value={productForm.description} onChange={(e) => setProductForm((prev) => ({ ...prev, description: e.target.value }))} required />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" min={0} placeholder="Harga" value={productForm.price} onChange={(e) => setProductForm((prev) => ({ ...prev, price: Number(e.target.value) }))} required />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" min={0} placeholder="Stok" value={productForm.stock} onChange={(e) => setProductForm((prev) => ({ ...prev, stock: Number(e.target.value) }))} required />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Negara asal" value={productForm.originCountry} onChange={(e) => setProductForm((prev) => ({ ...prev, originCountry: e.target.value }))} required />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="date" placeholder="Tanggal beli (yyyy-mm-dd)" value={productForm.purchaseDate} onChange={(e) => setProductForm((prev) => ({ ...prev, purchaseDate: e.target.value }))} required />
+            <label className="grid gap-1 text-sm">
+              Product ID (untuk update/delete)
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Product ID" value={productForm.id} onChange={(e) => setProductForm((prev) => ({ ...prev, id: e.target.value }))} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Nama produk
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Nama produk" value={productForm.name} onChange={(e) => setProductForm((prev) => ({ ...prev, name: e.target.value }))} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Deskripsi
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Deskripsi" value={productForm.description} onChange={(e) => setProductForm((prev) => ({ ...prev, description: e.target.value }))} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Harga
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" min={0} placeholder="Harga" value={productForm.price} onChange={(e) => setProductForm((prev) => ({ ...prev, price: Number(e.target.value) }))} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Stok
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" min={0} placeholder="Stok" value={productForm.stock} onChange={(e) => setProductForm((prev) => ({ ...prev, stock: Number(e.target.value) }))} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Negara asal
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Negara asal" value={productForm.originCountry} onChange={(e) => setProductForm((prev) => ({ ...prev, originCountry: e.target.value }))} required />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Tanggal beli
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="date" placeholder="Tanggal beli (yyyy-mm-dd)" value={productForm.purchaseDate} onChange={(e) => setProductForm((prev) => ({ ...prev, purchaseDate: e.target.value }))} required />
+            </label>
             <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
               <button className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900" disabled={loading}>
                 Create

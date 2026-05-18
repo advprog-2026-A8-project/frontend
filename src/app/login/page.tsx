@@ -24,6 +24,41 @@ type ProfileResponse = {
   };
 };
 
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), "=");
+    const json = atob(padded);
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function roleFromJwt(payload: Record<string, unknown> | null): string {
+  if (!payload) return "TITIPER";
+  const directRole = payload.role;
+  if (typeof directRole === "string" && directRole.trim()) {
+    return directRole;
+  }
+  return "TITIPER";
+}
+
+function userIdFromJwt(payload: Record<string, unknown> | null): string {
+  if (!payload) return "";
+  const directUserId = payload.userId;
+  if (typeof directUserId === "string" && directUserId.trim()) {
+    return directUserId;
+  }
+  const legacyId = payload.id;
+  if (typeof legacyId === "string" && legacyId.trim()) {
+    return legacyId;
+  }
+  return "";
+}
+
 function safeNextPath(nextPath: string | null) {
   if (!nextPath) return "/";
   if (!nextPath.startsWith("/") || nextPath.startsWith("//")) return "/";
@@ -52,17 +87,26 @@ function LoginPageContent() {
       const token = response?.data?.token ?? response?.token ?? "";
       if (!token) throw new Error("Token login tidak ditemukan dari backend authentication.");
 
-      writeSession({ token, userId: "", role: "TITIPER" });
+      const jwtPayload = decodeJwtPayload(token);
+      const fallbackUserId = userIdFromJwt(jwtPayload);
+      const fallbackRole = roleFromJwt(jwtPayload);
+
+      writeSession({ token, userId: fallbackUserId, role: fallbackRole });
 
       try {
         const profile = await gatewayRequest<ProfileResponse>("auth", "api/profile/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const userId = profile?.data?.id ?? profile?.data?.userId ?? profile?.id ?? profile?.userId ?? "";
-        const role = (profile?.data?.role ?? profile?.role) || "TITIPER";
+        const userId =
+          profile?.data?.id ??
+          profile?.data?.userId ??
+          profile?.id ??
+          profile?.userId ??
+          fallbackUserId;
+        const role = (profile?.data?.role ?? profile?.role ?? fallbackRole) || "TITIPER";
         writeSession({ token, userId, role });
       } catch {
-        writeSession({ token, userId: "", role: "TITIPER" });
+        writeSession({ token, userId: fallbackUserId, role: fallbackRole });
       }
 
       setMessage("Login berhasil. Mengarahkan ke halaman tujuan...");

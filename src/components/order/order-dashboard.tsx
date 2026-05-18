@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { orderApi } from "@/lib/order-api";
@@ -57,6 +57,11 @@ function mapRole(raw: string): Role {
   return "titiper";
 }
 
+function formatLastUpdate(iso: string | null) {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleTimeString("id-ID", { hour12: false });
+}
+
 export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps) {
   const session = useMemo(() => readSession(), []);
   const checkoutDraft = useMemo(() => readCheckoutDraft(), []);
@@ -85,11 +90,13 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [autoRefreshList, setAutoRefreshList] = useState(true);
+  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
 
   const canUseOrder = Boolean(authHeader && sessionUserId);
   const currentJastiperId = role === "jastiper" ? sessionUserId : jastiperId.trim();
 
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     if (!canUseOrder) return;
     setLoading(true);
     setError("");
@@ -119,12 +126,13 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
         const active = await orderApi.getAdminActive({ authorization: authHeader });
         setSegments([{ title: "Order Aktif Sistem", orders: active, emptyLabel: "Tidak ada order aktif." }]);
       }
+      setLastLoadedAt(new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat data order.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [authHeader, canUseOrder, role, sessionUserId]);
 
   async function onCheckoutSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -218,6 +226,19 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    if (view !== "list") return;
+    void loadOrders();
+  }, [view, loadOrders]);
+
+  useEffect(() => {
+    if (view !== "list" || !autoRefreshList) return;
+    const id = window.setInterval(() => {
+      void loadOrders();
+    }, 20000);
+    return () => window.clearInterval(id);
+  }, [view, autoRefreshList, loadOrders]);
 
   if (!canUseOrder) {
     return (
@@ -348,6 +369,17 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
         {view === "list" && (
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-4 flex flex-wrap items-end gap-3">
+              <label className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700">
+                <input
+                  type="checkbox"
+                  checked={autoRefreshList}
+                  onChange={(e) => setAutoRefreshList(e.target.checked)}
+                />
+                Auto refresh (20 detik)
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Update terakhir: {formatLastUpdate(lastLoadedAt)}
+              </p>
               {role !== "titiper" && role !== "jastiper" && (
                 <label className="flex flex-col gap-1 text-sm">
                   Jastiper ID (untuk cancel)

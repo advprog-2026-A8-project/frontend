@@ -129,7 +129,9 @@ export default function AdminPage() {
   }
 
   async function loadVouchers() {
-    const data = await gatewayRequest<Voucher[]>("voucher", "api/vouchers/admin/list");
+    const data = await gatewayRequest<Voucher[]>("voucher", "api/vouchers/admin/list", {
+      headers: { Authorization: auth },
+    });
     setVouchers(data);
   }
 
@@ -155,6 +157,7 @@ export default function AdminPage() {
     await run(async () => {
       await gatewayRequest("voucher", "api/vouchers/admin/create", {
         method: "POST",
+        headers: { Authorization: auth },
         body: {
           code: voucherForm.code.trim().toUpperCase(),
           quota: voucherForm.quota,
@@ -178,6 +181,7 @@ export default function AdminPage() {
     await run(async () => {
       await gatewayRequest("voucher", `api/vouchers/admin/update/${code}`, {
         method: "PATCH",
+        headers: { Authorization: auth },
         body: {
           additionalQuota: voucherForm.additionalQuota,
           isActive: voucherForm.isActive,
@@ -199,7 +203,7 @@ export default function AdminPage() {
       <main className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
           Fitur admin perlu login terlebih dahulu. Lanjut ke{" "}
-          <Link href="/login?next=/admin" className="font-semibold text-orange-600 hover:underline dark:text-orange-300">
+          <Link href="/login?next=/admin" className="font-semibold text-slate-600 hover:underline dark:text-slate-300">
             halaman login
           </Link>
           .
@@ -211,7 +215,7 @@ export default function AdminPage() {
   if (!isAdmin) {
     return (
       <main className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 shadow-sm">
+        <section className="rounded-2xl border border-slate-300 bg-slate-100 p-6 text-sm text-slate-700 shadow-sm">
           Halaman ini hanya untuk role ADMIN. Role Anda saat ini: <span className="font-semibold">{session.role || "TITIPER"}</span>.
         </section>
       </main>
@@ -219,10 +223,10 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)]">
+    <main className="app-page">
       <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6">
-        <div className="rounded-3xl border border-white/60 bg-white/85 p-6 shadow-lg shadow-orange-100/60 dark:border-slate-700 dark:bg-slate-900/80 sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Admin Center</p>
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-300/70 dark:border-slate-700 dark:bg-slate-900/80 sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Admin Center</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Kontrol Modul Backend JSON</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Role: {session.role} | User: {session.userId}</p>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -238,8 +242,8 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {message && <p className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
-        {error && <p className="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+        {message && <p className="mt-4 rounded-xl border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+        {error && <p className="mt-4 rounded-xl border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{error}</p>}
 
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -279,8 +283,25 @@ export default function AdminPage() {
           <h2 className="text-lg font-semibold">Admin User Controls</h2>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Target User ID" value={adminForm.userId} onChange={(e) => setAdminForm((prev) => ({ ...prev, userId: e.target.value }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Decision APPROVED/REJECTED" value={adminForm.decision} onChange={(e) => setAdminForm((prev) => ({ ...prev, decision: e.target.value }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Status ACTIVE/BANNED/PENDING" value={adminForm.status} onChange={(e) => setAdminForm((prev) => ({ ...prev, status: e.target.value }))} />
+            <select
+              className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              value={adminForm.decision}
+              onChange={(e) => setAdminForm((prev) => ({ ...prev, decision: e.target.value }))}
+            >
+              <option value="APPROVED">APPROVED</option>
+              <option value="REJECTED">REJECTED</option>
+              <option value="APPROVE">APPROVE</option>
+              <option value="REJECT">REJECT</option>
+            </select>
+            <select
+              className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              value={adminForm.status}
+              onChange={(e) => setAdminForm((prev) => ({ ...prev, status: e.target.value }))}
+            >
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="BANNED">BANNED</option>
+              <option value="PENDING">PENDING</option>
+            </select>
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Delta" value={adminForm.delta} onChange={(e) => setAdminForm((prev) => ({ ...prev, delta: Number(e.target.value) }))} />
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -322,15 +343,22 @@ export default function AdminPage() {
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Quota" value={voucherForm.quota} onChange={(e) => setVoucherForm((prev) => ({ ...prev, quota: Number(e.target.value) }))} required />
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Discount Value" value={voucherForm.discountValue} onChange={(e) => setVoucherForm((prev) => ({ ...prev, discountValue: Number(e.target.value) }))} required />
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Min Purchase" value={voucherForm.minPurchase} onChange={(e) => setVoucherForm((prev) => ({ ...prev, minPurchase: Number(e.target.value) }))} required />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Discount Type" value={voucherForm.discountType} onChange={(e) => setVoucherForm((prev) => ({ ...prev, discountType: e.target.value }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Expiry Date" value={voucherForm.expiryDate} onChange={(e) => setVoucherForm((prev) => ({ ...prev, expiryDate: e.target.value }))} />
+            <select
+              className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+              value={voucherForm.discountType}
+              onChange={(e) => setVoucherForm((prev) => ({ ...prev, discountType: e.target.value }))}
+            >
+              <option value="PERCENTAGE">PERCENTAGE</option>
+              <option value="FIXED_AMOUNT">FIXED_AMOUNT</option>
+            </select>
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="Expiry Date" value={voucherForm.expiryDate} onChange={(e) => setVoucherForm((prev) => ({ ...prev, expiryDate: e.target.value }))} />
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Terms and Conditions" value={voucherForm.termsAndConditions} onChange={(e) => setVoucherForm((prev) => ({ ...prev, termsAndConditions: e.target.value }))} />
             <label className="flex items-center gap-2 rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700">
               <input type="checkbox" checked={voucherForm.isActive} onChange={(e) => setVoucherForm((prev) => ({ ...prev, isActive: e.target.checked }))} />
               Active
             </label>
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Additional Quota" value={voucherForm.additionalQuota} onChange={(e) => setVoucherForm((prev) => ({ ...prev, additionalQuota: Number(e.target.value) }))} />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="New Expiry" value={voucherForm.newExpiry} onChange={(e) => setVoucherForm((prev) => ({ ...prev, newExpiry: e.target.value }))} />
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="New Expiry" value={voucherForm.newExpiry} onChange={(e) => setVoucherForm((prev) => ({ ...prev, newExpiry: e.target.value }))} />
             <div className="flex gap-2 sm:col-span-2 xl:col-span-4">
               <button className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900" disabled={loading}>
                 Create Voucher
@@ -346,7 +374,7 @@ export default function AdminPage() {
               <article key={voucher.code} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold">{voucher.code}</p>
-                  <span className={`rounded-full px-2 py-1 text-xs ${voucher.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"}`}>
+                  <span className={`rounded-full px-2 py-1 text-xs ${voucher.active ? "bg-slate-200 text-slate-700" : "bg-slate-200 text-slate-700"}`}>
                     {voucher.active ? "Active" : "Inactive"}
                   </span>
                 </div>
@@ -362,3 +390,4 @@ export default function AdminPage() {
     </main>
   );
 }
+

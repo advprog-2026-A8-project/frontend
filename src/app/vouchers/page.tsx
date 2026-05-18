@@ -19,6 +19,7 @@ type ValidateResult = {
   valid?: boolean;
   discountAmount?: number;
   finalPrice?: number;
+  finalAmount?: number;
   message?: string;
 };
 
@@ -35,6 +36,7 @@ export default function VouchersPage() {
   const session = useMemo(() => readSession(), []);
   const role = session.role.toUpperCase();
   const isAdmin = role.includes("ADMIN");
+  const authHeader = session.token ? `Bearer ${session.token}` : "";
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [check, setCheck] = useState({ code: "", amount: 100000 });
   const [adminForm, setAdminForm] = useState({
@@ -81,7 +83,10 @@ export default function VouchersPage() {
 
   async function loadAdminList() {
     await run(
-      () => gatewayRequest<Voucher[]>("voucher", "api/vouchers/admin/list"),
+      () =>
+        gatewayRequest<Voucher[]>("voucher", "api/vouchers/admin/list", {
+          headers: { Authorization: authHeader },
+        }),
       (data) => setVouchers(data),
       "Daftar voucher admin berhasil dimuat."
     );
@@ -101,6 +106,7 @@ export default function VouchersPage() {
       () =>
         gatewayRequest<Voucher>("voucher", "api/vouchers/admin/create", {
           method: "POST",
+          headers: { Authorization: authHeader },
           body: {
             code: adminForm.code.trim().toUpperCase(),
             quota: adminForm.quota,
@@ -130,6 +136,7 @@ export default function VouchersPage() {
       () =>
         gatewayRequest<Voucher>("voucher", `api/vouchers/admin/update/${code}`, {
           method: "PATCH",
+          headers: { Authorization: authHeader },
           body: {
             additionalQuota: adminForm.additionalQuota,
             isActive: adminForm.isActive,
@@ -143,10 +150,10 @@ export default function VouchersPage() {
   }
 
   return (
-    <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)]">
+    <main className="app-page">
       <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
-        <div className="rounded-3xl border border-white/60 bg-white/85 p-6 shadow-lg shadow-orange-100/60 dark:border-slate-700 dark:bg-slate-900/80 sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Voucher & Promo</p>
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-300/70 dark:border-slate-700 dark:bg-slate-900/80 sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Voucher & Promo</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Maksimalkan Belanja dengan Promo</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Cek voucher aktif, validasi diskon, lalu pakai saat checkout order.</p>
 
@@ -155,16 +162,16 @@ export default function VouchersPage() {
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-orange-700">Total Voucher</p>
+            <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-700">Total Voucher</p>
               <p className="mt-1 text-xl font-semibold text-slate-900">{vouchers.length}</p>
             </div>
-            <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-orange-700">Active</p>
+            <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-700">Active</p>
               <p className="mt-1 text-xl font-semibold text-slate-900">{activeCount}</p>
             </div>
-            <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-orange-700">Nominal Cek</p>
+            <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-700">Nominal Cek</p>
               <p className="mt-1 text-xl font-semibold text-slate-900">{formatCurrency(check.amount)}</p>
             </div>
           </div>
@@ -181,22 +188,26 @@ export default function VouchersPage() {
           </div>
 
           <form onSubmit={validate} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-            <input className="rounded-xl border border-slate-300 p-2 text-sm outline-none transition focus:border-orange-400 dark:border-slate-700 dark:bg-slate-950" placeholder="Kode voucher" value={check.code} onChange={(e) => setCheck((p) => ({ ...p, code: e.target.value.toUpperCase() }))} required />
-            <input className="rounded-xl border border-slate-300 p-2 text-sm outline-none transition focus:border-orange-400 dark:border-slate-700 dark:bg-slate-950" type="number" min={0} placeholder="Nominal belanja" value={check.amount} onChange={(e) => setCheck((p) => ({ ...p, amount: Number(e.target.value) }))} required />
+            <input className="rounded-xl border border-slate-300 p-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" placeholder="Kode voucher" value={check.code} onChange={(e) => setCheck((p) => ({ ...p, code: e.target.value.toUpperCase() }))} required />
+            <input className="rounded-xl border border-slate-300 p-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" type="number" min={0} placeholder="Nominal belanja" value={check.amount} onChange={(e) => setCheck((p) => ({ ...p, amount: Number(e.target.value) }))} required />
             <button disabled={loading} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
               Validasi
             </button>
           </form>
 
-          {message && <p className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
-          {error && <p className="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+          {message && <p className="mt-4 rounded-xl border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+          {error && <p className="mt-4 rounded-xl border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{error}</p>}
 
           {result && (
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/50">
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Hasil Validasi</p>
               <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">Status: {result.valid ? "Valid" : "Tidak Valid"}</p>
               {typeof result.discountAmount === "number" && <p className="text-sm text-slate-700 dark:text-slate-300">Diskon: {formatCurrency(result.discountAmount)}</p>}
-              {typeof result.finalPrice === "number" && <p className="text-sm text-slate-700 dark:text-slate-300">Total Setelah Diskon: {formatCurrency(result.finalPrice)}</p>}
+              {typeof (result.finalPrice ?? result.finalAmount) === "number" && (
+                <p className="text-sm text-slate-700 dark:text-slate-300">
+                  Total Setelah Diskon: {formatCurrency((result.finalPrice ?? result.finalAmount) as number)}
+                </p>
+              )}
               {result.message && <p className="text-sm text-slate-700 dark:text-slate-300">Catatan: {result.message}</p>}
             </div>
           )}
@@ -213,7 +224,14 @@ export default function VouchersPage() {
               <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Quota" value={adminForm.quota} onChange={(e) => setAdminForm((p) => ({ ...p, quota: Number(e.target.value) }))} />
               <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Discount Value" value={adminForm.discountValue} onChange={(e) => setAdminForm((p) => ({ ...p, discountValue: Number(e.target.value) }))} />
               <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" placeholder="Min Purchase" value={adminForm.minPurchase} onChange={(e) => setAdminForm((p) => ({ ...p, minPurchase: Number(e.target.value) }))} />
-              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Discount Type" value={adminForm.discountType} onChange={(e) => setAdminForm((p) => ({ ...p, discountType: e.target.value }))} />
+              <select
+                className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                value={adminForm.discountType}
+                onChange={(e) => setAdminForm((p) => ({ ...p, discountType: e.target.value }))}
+              >
+                <option value="PERCENTAGE">PERCENTAGE</option>
+                <option value="FIXED_AMOUNT">FIXED_AMOUNT</option>
+              </select>
               <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="datetime-local" placeholder="Expiry Date" value={adminForm.expiryDate} onChange={(e) => setAdminForm((p) => ({ ...p, expiryDate: e.target.value }))} />
               <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Terms" value={adminForm.termsAndConditions} onChange={(e) => setAdminForm((p) => ({ ...p, termsAndConditions: e.target.value }))} />
               <label className="flex items-center gap-2 rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700">
@@ -233,14 +251,14 @@ export default function VouchersPage() {
             </div>
           </section>
         ) : (
-          <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800 shadow-sm">
+          <section className="mt-6 rounded-2xl border border-slate-300 bg-slate-100 p-5 text-sm text-slate-700 shadow-sm">
             Fitur create/update voucher hanya tersedia untuk akun dengan role ADMIN.
           </section>
         )}
 
         <section className="mt-6">
           {vouchers.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
               Belum ada voucher ditampilkan. Klik <span className="font-semibold">Load Available Voucher</span> atau <span className="font-semibold">Load Admin List</span>.
             </div>
           ) : (
@@ -249,7 +267,7 @@ export default function VouchersPage() {
                 <article key={voucher.code} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
                   <div className="flex items-center justify-between gap-2">
                     <h2 className="text-lg font-semibold">{voucher.code}</h2>
-                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${voucher.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"}`}>
+                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${voucher.active ? "bg-slate-200 text-slate-700" : "bg-slate-200 text-slate-700"}`}>
                       {voucher.active ? "Active" : "Inactive"}
                     </span>
                   </div>
@@ -271,3 +289,4 @@ export default function VouchersPage() {
     </main>
   );
 }
+

@@ -42,7 +42,7 @@ npm run dev
 - `/wallet`
 - `/vouchers`
 - `/profile`
-- `/integration` (workspace uji E2E lintas modul)
+- `/integration` (workspace uji E2E internal, aktif jika `NEXT_PUBLIC_ENABLE_INTEGRATION_WORKSPACE=true`)
 
 ## Catatan Integrasi
 - Semua request frontend melewati proxy `src/app/api/gateway/[service]/[...path]/route.ts`.

@@ -20,12 +20,12 @@ type Product = {
 };
 
 const ORDER_STATUS_STYLE: Record<string, string> = {
-  PENDING: "bg-amber-100 text-amber-700",
-  PAID: "bg-emerald-100 text-emerald-700",
-  PURCHASED: "bg-sky-100 text-sky-700",
-  SHIPPED: "bg-indigo-100 text-indigo-700",
+  PENDING: "bg-slate-200 text-slate-700",
+  PAID: "bg-slate-200 text-slate-700",
+  PURCHASED: "bg-slate-200 text-slate-700",
+  SHIPPED: "bg-slate-200 text-slate-700",
   COMPLETED: "bg-green-100 text-green-700",
-  CANCELLED: "bg-rose-100 text-rose-700",
+  CANCELLED: "bg-slate-200 text-slate-700",
 };
 
 export default function JastiperPage() {
@@ -190,7 +190,7 @@ export default function JastiperPage() {
       <main className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
           Fitur jastiper perlu login terlebih dahulu. Lanjut ke{" "}
-          <Link href="/login?next=/jastiper" className="font-semibold text-orange-600 hover:underline dark:text-orange-300">
+          <Link href="/login?next=/jastiper" className="font-semibold text-slate-600 hover:underline dark:text-slate-300">
             halaman login
           </Link>
           .
@@ -202,7 +202,7 @@ export default function JastiperPage() {
   if (!canAccess) {
     return (
       <main className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6">
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 shadow-sm">
+        <section className="rounded-2xl border border-slate-300 bg-slate-100 p-6 text-sm text-slate-700 shadow-sm">
           Halaman ini untuk role JASTIPER/ADMIN. Role Anda saat ini: <span className="font-semibold">{session.role || "TITIPER"}</span>.
         </section>
       </main>
@@ -210,10 +210,10 @@ export default function JastiperPage() {
   }
 
   return (
-    <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)]">
+    <main className="app-page">
       <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6">
-        <div className="rounded-3xl border border-white/60 bg-white/85 p-6 shadow-lg shadow-orange-100/60 dark:border-slate-700 dark:bg-slate-900/80 sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Jastiper Center</p>
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-300/70 dark:border-slate-700 dark:bg-slate-900/80 sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Jastiper Center</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Kelola Katalog dan Order Jastip</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">User: {session.userId}</p>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -229,8 +229,8 @@ export default function JastiperPage() {
           </div>
         </div>
 
-        {message && <p className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
-        {error && <p className="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+        {message && <p className="mt-4 rounded-xl border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+        {error && <p className="mt-4 rounded-xl border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{error}</p>}
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-semibold">Manajemen Produk Jastiper</h2>
@@ -241,7 +241,7 @@ export default function JastiperPage() {
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" min={0} placeholder="Harga" value={productForm.price} onChange={(e) => setProductForm((prev) => ({ ...prev, price: Number(e.target.value) }))} required />
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" min={0} placeholder="Stok" value={productForm.stock} onChange={(e) => setProductForm((prev) => ({ ...prev, stock: Number(e.target.value) }))} required />
             <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Negara asal" value={productForm.originCountry} onChange={(e) => setProductForm((prev) => ({ ...prev, originCountry: e.target.value }))} required />
-            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Tanggal beli (yyyy-mm-dd)" value={productForm.purchaseDate} onChange={(e) => setProductForm((prev) => ({ ...prev, purchaseDate: e.target.value }))} required />
+            <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="date" placeholder="Tanggal beli (yyyy-mm-dd)" value={productForm.purchaseDate} onChange={(e) => setProductForm((prev) => ({ ...prev, purchaseDate: e.target.value }))} required />
             <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
               <button className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900" disabled={loading}>
                 Create
@@ -249,7 +249,7 @@ export default function JastiperPage() {
               <button type="button" onClick={updateProduct} disabled={loading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">
                 Update
               </button>
-              <button type="button" onClick={deleteProduct} disabled={loading} className="rounded-md border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-700">
+              <button type="button" onClick={deleteProduct} disabled={loading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">
                 Delete
               </button>
             </div>
@@ -301,22 +301,22 @@ export default function JastiperPage() {
                           <p className="text-sm">Qty: {order.jumlah}</p>
                           <div className="mt-2 flex flex-wrap gap-2">
                             {order.status === "PAID" && (
-                              <button onClick={() => moveOrderStatus(order.id, "PURCHASED")} disabled={loading} className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
+                              <button onClick={() => moveOrderStatus(order.id, "PURCHASED")} disabled={loading} className="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
                                 Mark PURCHASED
                               </button>
                             )}
                             {order.status === "PURCHASED" && (
-                              <button onClick={() => moveOrderStatus(order.id, "SHIPPED")} disabled={loading} className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
+                              <button onClick={() => moveOrderStatus(order.id, "SHIPPED")} disabled={loading} className="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
                                 Mark SHIPPED
                               </button>
                             )}
                             {order.status === "SHIPPED" && (
-                              <button onClick={() => moveOrderStatus(order.id, "COMPLETED")} disabled={loading} className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
+                              <button onClick={() => moveOrderStatus(order.id, "COMPLETED")} disabled={loading} className="rounded-md bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60">
                                 Mark COMPLETED
                               </button>
                             )}
                             {!["COMPLETED", "CANCELLED"].includes(order.status) && (
-                              <button onClick={() => cancelOrder(order.id)} disabled={loading} className="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700">
+                              <button onClick={() => cancelOrder(order.id)} disabled={loading} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700">
                                 Cancel + Refund
                               </button>
                             )}
@@ -334,3 +334,4 @@ export default function JastiperPage() {
     </main>
   );
 }
+

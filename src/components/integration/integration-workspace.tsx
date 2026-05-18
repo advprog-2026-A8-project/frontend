@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, ReactNode, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -402,9 +402,10 @@ export function IntegrationWorkspace() {
         )}
 
         <JsonPane title="Latest Response" data={payload} />
-        {message && <p className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
-        {error && <p className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+        {message && <p className="rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+        {error && <p className="rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{error}</p>}
       </div>
     </main>
   );
 }
+

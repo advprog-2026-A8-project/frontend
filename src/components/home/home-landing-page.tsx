@@ -2,61 +2,69 @@ import Link from "next/link";
 
 export function HomeLandingPage() {
   return (
-    <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)]">
-      <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6">
-        <section className="grid gap-6 rounded-3xl border border-white/60 bg-white/85 p-8 shadow-lg dark:border-slate-700 dark:bg-slate-900/75 lg:grid-cols-[1.2fr_0.8fr]">
-          <div>
-            <p className="inline-block rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700 dark:bg-orange-500/20 dark:text-orange-300">
-              JSON Final Project
-            </p>
-            <h1 className="mt-3 text-4xl font-black leading-tight sm:text-5xl">
-              Belanja Barang Limited Lewat Jastip, Lebih Aman dan Terstruktur
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-              Platform menghubungkan Titiper, Jastiper, dan Admin dengan alur modular:
-              authentication, inventory, order, wallet, dan voucher promo.
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Link href="/catalog" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900">
-                Lihat Catalog
-              </Link>
-              <Link href="/order" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">
-                Mulai Order
-              </Link>
-              <Link href="/register" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">
-                Daftar Akun
-              </Link>
-            </div>
+    <main className="app-page">
+      <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
+        <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-lg dark:border-slate-700 dark:bg-slate-900/75">
+          <p className="inline-block rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            JSON Final Project
+          </p>
+          <h1 className="mt-3 max-w-3xl text-4xl font-black leading-tight sm:text-5xl">
+            Platform Jastip yang Ringkas, Aman, dan Mudah Dipakai
+          </h1>
+          <p className="mt-3 max-w-2xl text-base text-slate-600 dark:text-slate-300">
+            Cari produk titipan, checkout cepat, bayar lewat wallet, lalu pantau status order dalam satu alur.
+          </p>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Link href="/catalog" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900">
+              Mulai dari Catalog
+            </Link>
+            <Link href="/order" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">
+              Cek Order
+            </Link>
+            <Link href="/register" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">
+              Daftar Akun
+            </Link>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/60">
-            <p className="text-sm font-semibold">Order Lifecycle</p>
-            <ul className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-200">
-              <li className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">PAID</li>
-              <li className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">PURCHASED</li>
-              <li className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">SHIPPED</li>
-              <li className="rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-900">COMPLETED</li>
-              <li className="rounded-lg border border-rose-300 bg-rose-50 p-2 text-rose-700 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-                CANCELLED -&gt; Auto Refund
-              </li>
-            </ul>
+
+          <div className="mt-5 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-300">
+            <span className="rounded-full border border-slate-300 px-2.5 py-1 dark:border-slate-700">Authentication</span>
+            <span className="rounded-full border border-slate-300 px-2.5 py-1 dark:border-slate-700">Inventory</span>
+            <span className="rounded-full border border-slate-300 px-2.5 py-1 dark:border-slate-700">Order</span>
+            <span className="rounded-full border border-slate-300 px-2.5 py-1 dark:border-slate-700">Wallet</span>
+            <span className="rounded-full border border-slate-300 px-2.5 py-1 dark:border-slate-700">Voucher</span>
           </div>
         </section>
 
-        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section className="mt-6 grid gap-4 md:grid-cols-3">
           {[
-            ["Authentication", "Register, login, role, KYC"],
-            ["Inventory", "Katalog produk dan pencarian"],
-            ["Order", "Checkout, monitoring, rating"],
-            ["Wallet & Voucher", "Top up, payment, promo discount"],
-          ].map(([title, desc]) => (
-            <article key={title} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <p className="font-semibold">{title}</p>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{desc}</p>
+            ["1", "Pilih Produk", "Cari barang titipan dari katalog dan pilih sesuai kebutuhan."],
+            ["2", "Checkout & Bayar", "Gunakan voucher jika ada, lalu bayar dengan wallet."],
+            ["3", "Pantau Status", "Lihat progres order sampai selesai atau refund jika batal."],
+          ].map(([step, title, desc]) => (
+            <article key={title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <p className="text-xs font-semibold text-slate-500">Langkah {step}</p>
+              <p className="mt-1 text-base font-semibold">{title}</p>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{desc}</p>
             </article>
           ))}
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Akses Cepat Sesuai Peran</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <Link href="/profile" className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+              Titiper: Kelola Profil
+            </Link>
+            <Link href="/jastiper" className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+              Jastiper: Kelola Katalog
+            </Link>
+            <Link href="/admin" className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800">
+              Admin: Kontrol Sistem
+            </Link>
+          </div>
         </section>
       </div>
     </main>
   );
 }
-

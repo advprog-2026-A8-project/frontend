@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useMemo, useState } from "react";
 import Link from "next/link";
@@ -36,12 +36,12 @@ const STATUS_ACTIONS_BY_ROLE: Record<Role, Partial<Record<OrderStatus, OrderStat
 };
 
 const STATUS_BADGES: Record<OrderStatus, string> = {
-  PENDING: "bg-amber-200 text-amber-900",
-  PAID: "bg-emerald-200 text-emerald-900",
-  PURCHASED: "bg-sky-200 text-sky-900",
-  SHIPPED: "bg-indigo-200 text-indigo-900",
+  PENDING: "bg-slate-200 text-slate-900",
+  PAID: "bg-slate-200 text-slate-900",
+  PURCHASED: "bg-slate-200 text-slate-900",
+  SHIPPED: "bg-slate-200 text-slate-900",
   COMPLETED: "bg-green-200 text-green-900",
-  CANCELLED: "bg-rose-200 text-rose-900",
+  CANCELLED: "bg-slate-200 text-slate-900",
 };
 
 function newIdempotencyKey() {
@@ -239,10 +239,10 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
   }
 
   return (
-    <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)]">
+    <main className="app-page">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6">
-        <section className="rounded-3xl border border-white/60 bg-white/85 p-6 shadow-lg dark:border-slate-700 dark:bg-slate-900/80">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Order Center</p>
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-700 dark:bg-slate-900/80">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Order Center</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Kelola Order Jastip Anda</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
             Login sebagai: <span className="font-semibold uppercase">{role}</span> | User ID: {sessionUserId}
@@ -261,12 +261,12 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold">Checkout Baru</h2>
             {selectedProductName && (
-              <p className="mt-2 rounded-lg border border-emerald-300 bg-emerald-50 p-2 text-xs text-emerald-700">
+              <p className="mt-2 rounded-lg border border-slate-300 bg-slate-100 p-2 text-xs text-slate-700">
                 Produk dipilih dari katalog: <span className="font-semibold">{selectedProductName}</span>
               </p>
             )}
             {!hasCatalogDraft && (
-              <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+              <p className="mt-2 rounded-lg border border-slate-300 bg-slate-100 p-2 text-xs text-slate-700">
                 Pilih produk dari halaman katalog agar product dan jastiper otomatis terisi.
               </p>
             )}
@@ -295,7 +295,7 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
               </div>
               {hasCatalogDraft && (
                 <div className="md:col-span-2">
-                  <Link href="/catalog" className="text-xs font-semibold text-orange-600 hover:underline dark:text-orange-300">
+                  <Link href="/catalog" className="text-xs font-semibold text-slate-600 hover:underline dark:text-slate-300">
                     Ganti produk dari katalog
                   </Link>
                 </div>
@@ -401,10 +401,11 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
           </section>
         )}
 
-        {message && <p className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
-        {error && <p className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+        {message && <p className="rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+        {error && <p className="rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{error}</p>}
       </div>
     </main>
   );
 }
+
 

@@ -32,6 +32,17 @@ type Voucher = {
   active: boolean;
 };
 
+type Product = {
+  id?: string;
+  name: string;
+  description: string;
+  price: number;
+  stock: number;
+  originCountry: string;
+  purchaseDate: string;
+  jastiperId?: string;
+};
+
 type OrderSummary = {
   totalOrders?: number;
   activeOrders?: number;
@@ -66,6 +77,7 @@ export default function AdminPage() {
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
+  const [inventoryProducts, setInventoryProducts] = useState<Product[]>([]);
   const [summary, setSummary] = useState<OrderSummary | null>(null);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [adminForm, setAdminForm] = useState({
@@ -85,6 +97,15 @@ export default function AdminPage() {
     additionalQuota: 0,
     isActive: true,
     newExpiry: "",
+  });
+  const [inventoryForm, setInventoryForm] = useState({
+    id: "",
+    name: "",
+    description: "",
+    price: 0,
+    stock: 0,
+    originCountry: "",
+    purchaseDate: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -108,6 +129,18 @@ export default function AdminPage() {
       quota: Number(voucher.quota ?? prev.quota),
       isActive: Boolean(voucher.active),
     }));
+  }
+
+  function pickInventoryProduct(product: Product) {
+    setInventoryForm({
+      id: product.id ?? "",
+      name: product.name ?? "",
+      description: product.description ?? "",
+      price: Number(product.price ?? 0),
+      stock: Number(product.stock ?? 0),
+      originCountry: product.originCountry ?? "",
+      purchaseDate: product.purchaseDate ?? "",
+    });
   }
 
   useEffect(() => {
@@ -155,9 +188,14 @@ export default function AdminPage() {
     setVouchers(data);
   }
 
+  async function loadInventoryProducts() {
+    const data = await gatewayRequest<Product[]>("inventory", "api/products/list");
+    setInventoryProducts(data);
+  }
+
   async function loadAll() {
     await run(async () => {
-      await Promise.all([loadUsers(), loadOrderData(), loadVouchers()]);
+      await Promise.all([loadUsers(), loadOrderData(), loadVouchers(), loadInventoryProducts()]);
     }, "Admin center berhasil dimuat.");
   }
 
@@ -210,6 +248,45 @@ export default function AdminPage() {
       });
       await loadVouchers();
     }, "Voucher berhasil diupdate.");
+  }
+
+  async function updateInventoryProduct() {
+    const id = inventoryForm.id.trim();
+    if (!id) {
+      setError("Product ID wajib diisi untuk update produk.");
+      return;
+    }
+    await run(async () => {
+      await gatewayRequest("inventory", `api/products/update/${id}`, {
+        method: "PUT",
+        headers: { Authorization: auth },
+        body: {
+          name: inventoryForm.name,
+          description: inventoryForm.description,
+          price: inventoryForm.price,
+          stock: inventoryForm.stock,
+          originCountry: inventoryForm.originCountry,
+          purchaseDate: inventoryForm.purchaseDate,
+        },
+      });
+      await loadInventoryProducts();
+    }, "Produk inventory berhasil diupdate.");
+  }
+
+  async function deleteInventoryProduct() {
+    const id = inventoryForm.id.trim();
+    if (!id) {
+      setError("Product ID wajib diisi untuk delete produk.");
+      return;
+    }
+    await run(async () => {
+      await gatewayRequest("inventory", `api/products/delete/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: auth },
+      });
+      await loadInventoryProducts();
+      setInventoryForm((prev) => ({ ...prev, id: "" }));
+    }, "Produk inventory berhasil dihapus.");
   }
 
   useEffect(() => {
@@ -297,6 +374,76 @@ export default function AdminPage() {
               </div>
             )}
           </article>
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-lg font-semibold">Inventory Moderation</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            Admin dapat memperbarui atau menghapus produk langsung dari katalog global.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <label className="grid gap-1 text-sm">
+              Product ID
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" value={inventoryForm.id} onChange={(e) => setInventoryForm((prev) => ({ ...prev, id: e.target.value }))} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Nama Produk
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" value={inventoryForm.name} onChange={(e) => setInventoryForm((prev) => ({ ...prev, name: e.target.value }))} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Deskripsi
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" value={inventoryForm.description} onChange={(e) => setInventoryForm((prev) => ({ ...prev, description: e.target.value }))} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Harga
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" min={0} value={inventoryForm.price} onChange={(e) => setInventoryForm((prev) => ({ ...prev, price: Number(e.target.value) }))} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Stok
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="number" min={0} value={inventoryForm.stock} onChange={(e) => setInventoryForm((prev) => ({ ...prev, stock: Number(e.target.value) }))} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Negara Asal
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" value={inventoryForm.originCountry} onChange={(e) => setInventoryForm((prev) => ({ ...prev, originCountry: e.target.value }))} />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Tanggal Beli
+              <input className="rounded-lg border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" type="date" value={inventoryForm.purchaseDate} onChange={(e) => setInventoryForm((prev) => ({ ...prev, purchaseDate: e.target.value }))} />
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={() => run(loadInventoryProducts, "Katalog inventory berhasil dimuat.")} disabled={loading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">
+              Refresh Inventory
+            </button>
+            <button onClick={updateInventoryProduct} disabled={loading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold dark:border-slate-700">
+              Update Produk
+            </button>
+            <button onClick={deleteInventoryProduct} disabled={loading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700">
+              Delete Produk
+            </button>
+          </div>
+
+          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {inventoryProducts.map((product) => (
+              <article key={product.id ?? `${product.name}-${product.purchaseDate}`} className={`rounded-lg border p-3 ${inventoryForm.id === product.id ? "border-slate-500 bg-slate-50 dark:border-slate-500 dark:bg-slate-950/60" : "border-slate-200 dark:border-slate-800"}`}>
+                <p className="truncate text-xs text-slate-500">{product.id}</p>
+                <p className="font-semibold">{product.name}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-300">{product.description}</p>
+                <p className="text-xs">Harga: {product.price} | Stok: {product.stock}</p>
+                <p className="text-xs">Asal: {product.originCountry}</p>
+                <p className="text-xs">Jastiper: {product.jastiperId ?? "-"}</p>
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    onClick={() => pickInventoryProduct(product)}
+                    className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-semibold dark:border-slate-700"
+                  >
+                    Pilih sebagai Target
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">

@@ -39,6 +39,9 @@ export default function ProfilePage() {
   const isAuthenticated = Boolean(session.token);
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [jastiperDirectory, setJastiperDirectory] = useState<ProfileData[]>([]);
+  const [lookupResult, setLookupResult] = useState<ProfileData | null>(null);
+  const [lookupForm, setLookupForm] = useState({ id: "", username: "", email: "" });
   const [form, setForm] = useState({ username: "", fullName: "", phoneNumber: "", bio: "" });
   const [kycForm, setKycForm] = useState({ fullName: "", identityDocumentUrl: "", socialMediaUrl: "" });
   const [loading, setLoading] = useState(false);
@@ -107,6 +110,31 @@ export default function ProfilePage() {
     }, "Pengajuan KYC berhasil dikirim.");
   }
 
+  async function loadJastiperDirectory() {
+    const payload = await gatewayRequest<ApiEnvelope<ProfileData[]>>("auth", "api/profile/jastiper", {
+      headers: { Authorization: auth },
+    });
+    setJastiperDirectory(unwrapData<ProfileData[]>(payload));
+  }
+
+  async function lookupProfile(event: FormEvent) {
+    event.preventDefault();
+    const params = new URLSearchParams();
+    if (lookupForm.id.trim()) params.set("id", lookupForm.id.trim());
+    if (lookupForm.username.trim()) params.set("username", lookupForm.username.trim());
+    if (lookupForm.email.trim()) params.set("email", lookupForm.email.trim());
+    if (params.size === 0) {
+      setError("Isi salah satu field lookup: id, username, atau email.");
+      return;
+    }
+    await run(async () => {
+      const payload = await gatewayRequest<ApiEnvelope<ProfileData>>("auth", `api/profile/lookup?${params.toString()}`, {
+        headers: { Authorization: auth },
+      });
+      setLookupResult(unwrapData<ProfileData>(payload));
+    }, "Lookup profil berhasil.");
+  }
+
   useEffect(() => {
     if (isAuthenticated) {
       run(loadMyProfile);
@@ -135,6 +163,9 @@ export default function ProfilePage() {
           <div className="mt-4 flex flex-wrap gap-2">
             <button onClick={() => run(loadMyProfile, "Profil berhasil dimuat.")} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-500 dark:border-slate-700 dark:text-slate-100">
               Refresh Profil
+            </button>
+            <button onClick={() => run(loadJastiperDirectory, "Direktori jastiper berhasil dimuat.")} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">
+              Load Direktori Jastiper
             </button>
             {isJastiper && (
               <Link href="/jastiper" className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">
@@ -176,6 +207,38 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Cari Profil & Direktori Jastiper</h2>
+          <form onSubmit={lookupProfile} className="mt-4 grid gap-2 sm:grid-cols-3">
+            <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Lookup by user ID" value={lookupForm.id} onChange={(e) => setLookupForm((prev) => ({ ...prev, id: e.target.value }))} />
+            <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Lookup by username" value={lookupForm.username} onChange={(e) => setLookupForm((prev) => ({ ...prev, username: e.target.value }))} />
+            <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Lookup by email" value={lookupForm.email} onChange={(e) => setLookupForm((prev) => ({ ...prev, email: e.target.value }))} />
+            <button className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700 sm:col-span-3" disabled={loading}>
+              Lookup Profil
+            </button>
+          </form>
+
+          {lookupResult && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-950/50">
+              <p className="font-semibold">{lookupResult.username} ({lookupResult.role})</p>
+              <p className="truncate text-xs text-slate-500">{lookupResult.id}</p>
+              <p className="text-xs">{lookupResult.email}</p>
+              <p className="text-xs">KYC: {lookupResult.kycStatus ?? "-"}</p>
+            </div>
+          )}
+
+          <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {jastiperDirectory.map((item) => (
+              <article key={item.id} className="rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
+                <p className="font-semibold">{item.username}</p>
+                <p className="truncate text-xs text-slate-500">{item.id}</p>
+                <p className="text-xs">{item.email}</p>
+                <p className="text-xs">KYC: {item.kycStatus ?? "-"}</p>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">

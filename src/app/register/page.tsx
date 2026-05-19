@@ -26,7 +26,14 @@ export default function RegisterPage() {
         throw new Error("Konfirmasi password tidak sama.");
       }
 
-      await gatewayRequest("auth", "api/auth/register", { method: "POST", body: form });
+      await gatewayRequest("auth", "api/auth/register", {
+        method: "POST",
+        body: {
+          email: form.email,
+          password: form.password,
+          username: form.username.trim() || undefined,
+        },
+      });
       setMessage("Registrasi berhasil. Mengarahkan ke login...");
       setForm({ username: "", email: "", password: "" });
       setConfirmPassword("");
@@ -46,8 +53,8 @@ export default function RegisterPage() {
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Buat akun Titiper baru.</p>
           <form onSubmit={onSubmit} className="mt-5 grid gap-3">
             <label className="grid gap-1 text-sm">
-              Username
-              <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" placeholder="Username" value={form.username} onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))} required />
+              Username (opsional)
+              <input className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950" placeholder="Username (opsional)" value={form.username} onChange={(e) => setForm((p) => ({ ...p, username: e.target.value }))} />
             </label>
             <label className="grid gap-1 text-sm">
               Email

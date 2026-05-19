@@ -41,6 +41,8 @@ export default function WalletPage() {
   const session = useMemo(() => readSession(), []);
   const isAuthenticated = Boolean(session.token && session.userId);
   const auth = session.token ? `Bearer ${session.token}` : "";
+  const role = session.role.toUpperCase();
+  const canWithdraw = role.includes("JASTIPER") || role.includes("ADMIN");
 
   const [amount, setAmount] = useState(10000);
   const [description, setDescription] = useState("Pembayaran order");
@@ -168,6 +170,21 @@ export default function WalletPage() {
     }, "Refund berhasil diproses.");
   }
 
+  async function withdraw() {
+    if (!canWithdraw) {
+      setError("Withdraw hanya tersedia untuk role JASTIPER atau ADMIN.");
+      return;
+    }
+    await run(async () => {
+      await gatewayRequest("wallet", "wallet/withdraw", {
+        method: "POST",
+        headers: { Authorization: auth, "X-Role": role },
+        body: { userId: session.userId, amount, description },
+      });
+      await Promise.all([fetchWallet(), fetchHistory()]);
+    }, "Withdraw berhasil diproses.");
+  }
+
   useEffect(() => {
     if (!autoRefreshPending || !hasPendingTransaction) return;
     const intervalId = window.setInterval(() => {
@@ -239,6 +256,11 @@ export default function WalletPage() {
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-3">
             <h2 className="text-lg font-semibold">Transaksi Wallet</h2>
+            {!canWithdraw && (
+              <p className="mt-2 rounded-lg border border-slate-300 bg-slate-100 p-2 text-xs text-slate-700">
+                Withdraw hanya tersedia untuk role JASTIPER/ADMIN. Role Anda saat ini: {role || "TITIPER"}.
+              </p>
+            )}
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <label className="grid gap-1 text-xs text-slate-600 dark:text-slate-300">
                 Nominal
@@ -274,6 +296,9 @@ export default function WalletPage() {
               </button>
               <button onClick={refund} disabled={loading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
                 Refund
+              </button>
+              <button onClick={withdraw} disabled={loading || !canWithdraw} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
+                Withdraw
               </button>
               <button onClick={() => run(() => fetchHistory(), "Riwayat berhasil difilter.")} disabled={loading} className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
                 Terapkan Filter Status

@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { OrderDashboard } from "@/components/order/order-dashboard";
-import { readSession } from "@/lib/client-session";
+import { isSessionAuthenticated, readSession } from "@/lib/client-session";
 
 export default function OrderListPage() {
   const router = useRouter();
-  const isAuthenticated = Boolean(readSession().token);
+  const isAuthenticated = isSessionAuthenticated(readSession());
 
   useEffect(() => {
     if (!isAuthenticated) router.replace("/login?next=/order/list");

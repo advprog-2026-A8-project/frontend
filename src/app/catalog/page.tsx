@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { gatewayRequest } from "@/lib/gateway-api";
-import { writeCheckoutDraft } from "@/lib/client-session";
+import { isSessionAuthenticated, readSession, writeCheckoutDraft } from "@/lib/client-session";
 
 type Product = {
   id?: string;
@@ -27,6 +27,9 @@ function formatLastUpdate(iso: string | null) {
 
 export default function CatalogPage() {
   const router = useRouter();
+  const session = useMemo(() => readSession(), []);
+  const role = session.role.toUpperCase();
+  const canCheckoutAsTitiper = isSessionAuthenticated(session) && role.includes("TITIPER");
   const [search, setSearch] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
@@ -123,6 +126,12 @@ export default function CatalogPage() {
   }
 
   function checkoutFromProduct(product: Product) {
+    if (!canCheckoutAsTitiper) {
+      if (!isSessionAuthenticated(session)) {
+        router.push("/login?next=/catalog");
+      }
+      return;
+    }
     if (!product.id || !product.jastiperId) return;
     writeCheckoutDraft({
       productId: product.id,
@@ -160,6 +169,11 @@ export default function CatalogPage() {
           <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
             Jelajahi barang titipan, cek stok live, lalu checkout langsung dari kartu produk.
           </p>
+          {!canCheckoutAsTitiper && (
+            <p className="mt-3 rounded-lg border border-slate-300 bg-slate-100 p-3 text-xs text-slate-700">
+              Checkout hanya tersedia untuk akun TITIPER yang sudah login.
+            </p>
+          )}
 
           <form onSubmit={doSearch} className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
             <input
@@ -246,7 +260,8 @@ export default function CatalogPage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filteredProducts.map((product) => {
-                const checkoutDisabled = !product.id || !product.jastiperId || product.stock <= 0;
+                const checkoutDisabled =
+                  !product.id || !product.jastiperId || product.stock <= 0 || !canCheckoutAsTitiper;
                 return (
                   <article key={product.id ?? `${product.name}-${product.purchaseDate}`} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
                     <div className="flex items-start justify-between gap-2">
@@ -269,7 +284,7 @@ export default function CatalogPage() {
                       onClick={() => checkoutFromProduct(product)}
                       className="mt-4 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-slate-100 dark:text-slate-900 dark:disabled:bg-slate-700"
                     >
-                      Checkout Produk Ini
+                      {canCheckoutAsTitiper ? "Checkout Produk Ini" : "Login TITIPER untuk Checkout"}
                     </button>
                   </article>
                 );

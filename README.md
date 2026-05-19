@@ -52,3 +52,4 @@ npm test
 - Semua request frontend melewati proxy `src/app/api/gateway/[service]/[...path]/route.ts`.
 - Session disimpan di browser (`localStorage`) via `src/lib/client-session.ts`.
 - Untuk endpoint yang butuh otorisasi role (mis. admin/jastiper), gunakan akun/token dengan role yang sesuai.
+- Checkout order mengikuti guard backend terbaru: hanya role `TITIPER` yang boleh checkout dan user tidak boleh membeli produk milik jastiper dengan ID yang sama.

@@ -37,6 +37,7 @@ export default function HelpPage() {
               <li>Login menggunakan akun Titiper.</li>
               <li>Buka halaman Catalog lalu pilih produk yang diinginkan.</li>
               <li>Klik tombol checkout pada kartu produk agar product dan jastiper otomatis terisi.</li>
+              <li>Pastikan Anda tidak checkout produk milik jastiper dengan ID yang sama dengan akun Anda.</li>
               <li>Isi jumlah, alamat pengiriman, dan voucher (opsional), lalu submit checkout.</li>
               <li>Pantau status order pada menu Order hingga selesai.</li>
             </ol>
@@ -76,7 +77,7 @@ export default function HelpPage() {
           <div className="mt-3 space-y-3 text-sm text-slate-700 dark:text-slate-300">
             <details className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
               <summary className="cursor-pointer font-semibold">Kenapa checkout bisa gagal?</summary>
-              <p className="mt-2">Umumnya karena token login tidak valid, stok habis, atau data user/jastiper tidak sesuai kontrak backend.</p>
+              <p className="mt-2">Umumnya karena token login tidak valid, stok habis, data user/jastiper tidak sesuai kontrak backend, atau mencoba membeli produk milik jastiper sendiri.</p>
             </details>
             <details className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
               <summary className="cursor-pointer font-semibold">Kapan harus top up wallet?</summary>

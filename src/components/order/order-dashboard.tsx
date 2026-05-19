@@ -89,6 +89,10 @@ function checkoutForbiddenMessage() {
   return "Checkout ditolak karena token login belum memuat claim userId (UUID). Logout lalu login ulang setelah backend auth terbaru aktif.";
 }
 
+function isSelfPurchase(userId: string, jastiperId: string) {
+  return userId.trim().toLowerCase() === jastiperId.trim().toLowerCase();
+}
+
 export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps) {
   const session = useMemo(() => readSession(), []);
   const checkoutDraft = useMemo(() => readCheckoutDraft(), []);
@@ -114,6 +118,11 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
     voucherCode: "",
     idempotencyKey: newIdempotencyKey(),
   });
+  const isSelfPurchaseDraft = Boolean(
+    hasCatalogDraft &&
+    checkoutForm.jastiperId &&
+    isSelfPurchase(sessionUserId, checkoutForm.jastiperId)
+  );
   const [selectedProductName] = useState(checkoutDraft?.productName ?? "");
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, { jastiperRating: number; productRating: number }>>(
     {}
@@ -187,6 +196,10 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
     }
     if (!checkoutForm.productId.trim() || !checkoutForm.jastiperId.trim()) {
       setError("Pilih produk dari katalog terlebih dahulu sebelum checkout.");
+      return;
+    }
+    if (isSelfPurchase(sessionUserId, checkoutForm.jastiperId)) {
+      setError("Checkout ditolak. Jastiper tidak boleh membeli barang miliknya sendiri.");
       return;
     }
     setLoading(true);
@@ -342,6 +355,11 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
                 Produk dipilih dari katalog: <span className="font-semibold">{selectedProductName}</span>
               </p>
             )}
+            {isSelfPurchaseDraft && (
+              <p className="mt-2 rounded-lg border border-slate-300 bg-slate-100 p-2 text-xs text-slate-700">
+                Produk ini milik akun Anda sendiri. Pilih produk jastiper lain untuk checkout.
+              </p>
+            )}
             {!hasCatalogDraft && (
               <p className="mt-2 rounded-lg border border-slate-300 bg-slate-100 p-2 text-xs text-slate-700">
                 Pilih produk dari halaman katalog agar product dan jastiper otomatis terisi.
@@ -385,7 +403,7 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
                 <input className="rounded-lg border border-slate-300 p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Idempotency-Key (opsional)" value={checkoutForm.idempotencyKey} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: e.target.value }))} />
               </label>
               <div className="md:col-span-2 flex gap-2">
-                <Button type="submit" disabled={loading || !hasCatalogDraft}>{loading ? "Memproses..." : "Checkout Sekarang"}</Button>
+                <Button type="submit" disabled={loading || !hasCatalogDraft || isSelfPurchaseDraft}>{loading ? "Memproses..." : "Checkout Sekarang"}</Button>
                 <Button type="button" variant="outline" onClick={() => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: newIdempotencyKey() }))}>Generate Key</Button>
               </div>
             </form>

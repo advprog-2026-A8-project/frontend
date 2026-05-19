@@ -106,7 +106,6 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
 
   const [view, setView] = useState<ViewMode>(canCheckout ? initialView : "list");
   const [jastiperId, setJastiperId] = useState("");
-  const [useManualIds, setUseManualIds] = useState(!hasCatalogDraft);
   const [checkoutForm, setCheckoutForm] = useState({
     productId: checkoutDraft?.productId ?? "",
     jastiperId: checkoutDraft?.jastiperId ?? "",
@@ -182,6 +181,10 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
       setError("Token login tidak sinkron dengan user profile. Logout lalu login ulang sebelum checkout.");
       return;
     }
+    if (!hasCatalogDraft) {
+      setError("Checkout wajib dimulai dari katalog. Pilih produk terlebih dahulu.");
+      return;
+    }
     if (!checkoutForm.productId.trim() || !checkoutForm.jastiperId.trim()) {
       setError("Pilih produk dari katalog terlebih dahulu sebelum checkout.");
       return;
@@ -210,7 +213,6 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
         voucherCode: "",
         idempotencyKey: newIdempotencyKey(),
       });
-      setUseManualIds(false);
       clearCheckoutDraft();
       setView("list");
       await loadOrders();
@@ -346,7 +348,7 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
               </p>
             )}
             <form onSubmit={onCheckoutSubmit} className="mt-4 grid gap-3 md:grid-cols-2">
-              {hasCatalogDraft && !useManualIds ? (
+              {hasCatalogDraft ? (
                 <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-950/60 md:col-span-2">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Produk Checkout</p>
                   <p className="mt-1 font-semibold">{selectedProductName || "-"}</p>
@@ -354,28 +356,9 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
                   <p className="text-xs text-slate-600 dark:text-slate-300">Jastiper ID: <span className="font-mono">{checkoutForm.jastiperId}</span></p>
                 </div>
               ) : (
-                <>
-                  <label className="grid gap-1 text-sm">
-                    Product ID
-                    <input
-                      className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950"
-                      placeholder="Product ID"
-                      value={checkoutForm.productId}
-                      onChange={(e) => setCheckoutForm((prev) => ({ ...prev, productId: e.target.value }))}
-                      required
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm">
-                    Jastiper ID
-                    <input
-                      className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950"
-                      placeholder="Jastiper ID"
-                      value={checkoutForm.jastiperId}
-                      onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jastiperId: e.target.value }))}
-                      required
-                    />
-                  </label>
-                </>
+                <div className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300 md:col-span-2">
+                  Product dan jastiper akan terisi otomatis setelah Anda memilih produk dari katalog.
+                </div>
               )}
               <label className="grid gap-1 text-sm">
                 Jumlah
@@ -392,26 +375,17 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
               <div className="rounded-lg border border-dashed border-slate-300 p-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300 md:col-span-2">
                 User ID checkout akan otomatis memakai session login: <span className="font-mono">{sessionUserId}</span>
               </div>
-              {hasCatalogDraft && (
-                <div className="flex flex-wrap gap-3 md:col-span-2">
-                  <Link href="/catalog" className="text-xs font-semibold text-slate-600 hover:underline dark:text-slate-300">
-                    Ganti produk dari katalog
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => setUseManualIds((prev) => !prev)}
-                    className="text-xs font-semibold text-slate-600 hover:underline dark:text-slate-300"
-                  >
-                    {useManualIds ? "Kunci ke produk katalog" : "Gunakan input ID manual"}
-                  </button>
-                </div>
-              )}
+              <div className="flex flex-wrap gap-3 md:col-span-2">
+                <Link href="/catalog" className="text-xs font-semibold text-slate-600 hover:underline dark:text-slate-300">
+                  {hasCatalogDraft ? "Ganti produk dari katalog" : "Pilih produk dari katalog"}
+                </Link>
+              </div>
               <label className="grid gap-1 text-sm md:col-span-2">
                 Idempotency-Key (opsional)
                 <input className="rounded-lg border border-slate-300 p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Idempotency-Key (opsional)" value={checkoutForm.idempotencyKey} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: e.target.value }))} />
               </label>
               <div className="md:col-span-2 flex gap-2">
-                <Button type="submit" disabled={loading}>{loading ? "Memproses..." : "Checkout Sekarang"}</Button>
+                <Button type="submit" disabled={loading || !hasCatalogDraft}>{loading ? "Memproses..." : "Checkout Sekarang"}</Button>
                 <Button type="button" variant="outline" onClick={() => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: newIdempotencyKey() }))}>Generate Key</Button>
               </div>
             </form>

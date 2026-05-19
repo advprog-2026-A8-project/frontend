@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { gatewayRequest } from "@/lib/gateway-api";
-import { readSession, writeSession } from "@/lib/client-session";
+import { clearSession, readSession, writeSession } from "@/lib/client-session";
 
 type LoginResponse = {
   token?: string;
@@ -90,29 +90,35 @@ function LoginPageContent() {
       const jwtPayload = decodeJwtPayload(token);
       const fallbackUserId = userIdFromJwt(jwtPayload);
       const fallbackRole = roleFromJwt(jwtPayload);
-
-      writeSession({ token, userId: fallbackUserId, role: fallbackRole });
+      let resolvedUserId = fallbackUserId;
+      let resolvedRole = fallbackRole;
 
       try {
         const profile = await gatewayRequest<ProfileResponse>("auth", "api/profile/me", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const userId =
+        resolvedUserId =
           profile?.data?.id ??
           profile?.data?.userId ??
           profile?.id ??
           profile?.userId ??
           fallbackUserId;
-        const role = (profile?.data?.role ?? profile?.role ?? fallbackRole) || "TITIPER";
-        writeSession({ token, userId, role });
+        resolvedRole = (profile?.data?.role ?? profile?.role ?? fallbackRole) || "TITIPER";
       } catch {
-        writeSession({ token, userId: fallbackUserId, role: fallbackRole });
+        resolvedUserId = fallbackUserId;
+        resolvedRole = fallbackRole;
       }
+
+      if (!resolvedUserId.trim()) {
+        throw new Error("Login belum dapat melanjutkan karena userId tidak ditemukan di token/profile.");
+      }
+      writeSession({ token, userId: resolvedUserId, role: resolvedRole });
 
       setMessage("Login berhasil. Mengarahkan ke halaman tujuan...");
       const nextPath = safeNextPath(searchParams.get("next"));
       router.push(nextPath);
     } catch (err) {
+      clearSession();
       setError(err instanceof Error ? err.message : "Login gagal.");
     } finally {
       setLoading(false);

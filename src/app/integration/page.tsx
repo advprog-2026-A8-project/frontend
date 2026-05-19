@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { IntegrationWorkspace } from "@/components/integration/integration-workspace";
-import { readSession } from "@/lib/client-session";
+import { isSessionAuthenticated, readSession } from "@/lib/client-session";
 
 export default function IntegrationPage() {
   const router = useRouter();
   const session = useMemo(() => readSession(), []);
   const integrationEnabled = process.env.NEXT_PUBLIC_ENABLE_INTEGRATION_WORKSPACE === "true";
-  const isAuthenticated = Boolean(session.token);
+  const isAuthenticated = isSessionAuthenticated(session);
   const isAdmin = session.role.toUpperCase().includes("ADMIN");
 
   useEffect(() => {

@@ -25,6 +25,10 @@ cp .env.example .env.local
 ```bash
 npm run dev
 ```
+4. Jalankan smoke test frontend:
+```bash
+npm test
+```
 
 ## Default Backend URLs
 `.env.example` sudah diset sesuai kontrak integrasi terbaru:

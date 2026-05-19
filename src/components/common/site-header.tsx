@@ -4,7 +4,7 @@ import Link from "next/link";
 import { MouseEvent, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { DarkModeToggle } from "@/components/common/darkmode-toggle";
-import { clearCheckoutDraft, clearSession, readSession } from "@/lib/client-session";
+import { clearCheckoutDraft, clearSession, isSessionAuthenticated, readSession } from "@/lib/client-session";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -32,7 +32,7 @@ export function SiteHeader() {
   const router = useRouter();
   const session = useMemo(() => readSession(), [pathname]);
   const role = session.role.toUpperCase();
-  const isAuthenticated = Boolean(session.token);
+  const isAuthenticated = isSessionAuthenticated(session);
   const isAdmin = role.includes("ADMIN");
   const isJastiper = role.includes("JASTIPER");
 

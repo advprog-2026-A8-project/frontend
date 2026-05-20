@@ -1,7 +1,9 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { gatewayRequest } from "@/lib/gateway-api";
+import { isSessionAuthenticated, readSession, writeCheckoutDraft } from "@/lib/client-session";
 
 type Product = {
   id?: string;
@@ -18,12 +20,24 @@ function formatCurrency(value: number) {
   return `Rp ${Number(value).toLocaleString("id-ID")}`;
 }
 
+function formatLastUpdate(iso: string | null) {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleTimeString("id-ID", { hour12: false });
+}
+
 export default function CatalogPage() {
+  const router = useRouter();
+  const session = useMemo(() => readSession(), []);
+  const role = session.role.toUpperCase();
+  const canCheckoutAsTitiper = isSessionAuthenticated(session) && role.includes("TITIPER");
   const [search, setSearch] = useState("");
+  const [jastiperSearch, setJastiperSearch] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
   const [stockFilter, setStockFilter] = useState<"all" | "in-stock" | "out-of-stock">("all");
   const [countryFilter, setCountryFilter] = useState("all");
   const [minPrice, setMinPrice] = useState("");
@@ -86,6 +100,7 @@ export default function CatalogPage() {
     try {
       const data = await action();
       setProducts(data);
+      setLastLoadedAt(new Date().toISOString());
       if (successMessage) setMessage(successMessage);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan saat memuat katalog.");
@@ -111,19 +126,81 @@ export default function CatalogPage() {
     );
   }
 
+  async function searchByJastiper(event?: FormEvent) {
+    event?.preventDefault();
+    const jastiperId = jastiperSearch.trim();
+    if (!jastiperId) {
+      await loadAll();
+      return;
+    }
+    await run(
+      () => gatewayRequest<Product[]>("inventory", `api/products/jastiper/${encodeURIComponent(jastiperId)}`),
+      `Katalog jastiper ${jastiperId} berhasil dimuat.`
+    );
+  }
+
+  async function quickPickJastiper(jastiperId?: string) {
+    if (!jastiperId) return;
+    setJastiperSearch(jastiperId);
+    await run(
+      () => gatewayRequest<Product[]>("inventory", `api/products/jastiper/${encodeURIComponent(jastiperId)}`),
+      `Katalog jastiper ${jastiperId} berhasil dimuat.`
+    );
+  }
+
+  function checkoutFromProduct(product: Product) {
+    if (!canCheckoutAsTitiper) {
+      if (!isSessionAuthenticated(session)) {
+        router.push("/login?next=/catalog");
+      }
+      return;
+    }
+    if (!product.id || !product.jastiperId) return;
+    writeCheckoutDraft({
+      productId: product.id,
+      jastiperId: product.jastiperId,
+      productName: product.name,
+    });
+    router.push("/order");
+  }
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  useEffect(() => {
+    if (!autoRefresh || search.trim() || jastiperSearch.trim()) return;
+    const id = window.setInterval(async () => {
+      try {
+        const data = await gatewayRequest<Product[]>("inventory", "api/products/list");
+        setProducts(data);
+        setLastLoadedAt(new Date().toISOString());
+      } catch {
+        // keep existing product state if polling fails
+      }
+    }, 15000);
+
+    return () => window.clearInterval(id);
+  }, [autoRefresh, search, jastiperSearch]);
+
   return (
-    <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)]">
+    <main className="app-page">
       <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6">
-        <section className="rounded-3xl border border-white/60 bg-white/85 p-6 shadow-lg shadow-orange-100/60 dark:border-slate-700 dark:bg-slate-900/80 sm:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Catalog</p>
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-300/70 dark:border-slate-700 dark:bg-slate-900/80 sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Catalog</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Cari Produk Titipan dari Berbagai Negara</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-            Jelajahi barang titipan, cek stok, lalu lanjutkan checkout di modul order.
+            Jelajahi barang titipan, cek stok live, lalu checkout langsung dari kartu produk.
           </p>
+          {!canCheckoutAsTitiper && (
+            <p className="mt-3 rounded-lg border border-slate-300 bg-slate-100 p-3 text-xs text-slate-700">
+              Checkout hanya tersedia untuk akun TITIPER yang sudah login.
+            </p>
+          )}
 
           <form onSubmit={doSearch} className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
             <input
-              className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-orange-400 dark:border-slate-700 dark:bg-slate-950"
+              className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950"
               placeholder="Cari nama produk..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -135,19 +212,38 @@ export default function CatalogPage() {
               {loading ? "Loading..." : "Load All"}
             </button>
           </form>
+          <form onSubmit={searchByJastiper} className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
+            <input
+              className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950"
+              placeholder="Cari berdasarkan Jastiper ID..."
+              value={jastiperSearch}
+              onChange={(e) => setJastiperSearch(e.target.value)}
+            />
+            <button type="submit" disabled={loading} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
+              {loading ? "Mencari..." : "Cari Jastiper"}
+            </button>
+          </form>
+
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+            <label className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 dark:border-slate-700">
+              <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
+              Auto refresh stok (15 detik)
+            </label>
+            <span>Terakhir update: {formatLastUpdate(lastLoadedAt)}</span>
+          </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-orange-700">Total Produk</p>
+            <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-700">Total Produk</p>
               <p className="mt-1 text-xl font-semibold text-slate-900">{products.length}</p>
             </div>
-            <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-orange-700">Ready Stock</p>
+            <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-700">Ready Stock</p>
               <p className="mt-1 text-xl font-semibold text-slate-900">{inStockCount}</p>
             </div>
-            <div className="rounded-xl border border-orange-100 bg-orange-50/70 p-3">
-              <p className="text-xs uppercase tracking-wide text-orange-700">Mode</p>
-              <p className="mt-1 text-xl font-semibold text-slate-900">{search.trim() ? "Search" : "Browse"}</p>
+            <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-700">Mode</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{jastiperSearch.trim() ? "Jastiper" : search.trim() ? "Search" : "Browse"}</p>
             </div>
           </div>
 
@@ -159,7 +255,7 @@ export default function CatalogPage() {
               </button>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              <select className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={stockFilter} onChange={(e) => setStockFilter(e.target.value as "all" | "in-stock" | "out-of-stock")}>
+              <select className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={stockFilter} onChange={(e) => setStockFilter(e.target.value as "all" | "in-stock" | "out-of-stock")}> 
                 <option value="all">Semua Stok</option>
                 <option value="in-stock">In Stock</option>
                 <option value="out-of-stock">Out of Stock</option>
@@ -177,7 +273,7 @@ export default function CatalogPage() {
               <input className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" type="number" min={0} placeholder="Harga minimum" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
               <input className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" type="number" min={0} placeholder="Harga maksimum" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
 
-              <select className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={sortBy} onChange={(e) => setSortBy(e.target.value as "default" | "price-asc" | "price-desc" | "name-asc")}>
+              <select className="rounded-lg border border-slate-300 px-2 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" value={sortBy} onChange={(e) => setSortBy(e.target.value as "default" | "price-asc" | "price-desc" | "name-asc")}> 
                 <option value="default">Urutkan</option>
                 <option value="price-asc">Harga Termurah</option>
                 <option value="price-desc">Harga Termahal</option>
@@ -186,35 +282,55 @@ export default function CatalogPage() {
             </div>
           </div>
 
-          {message && <p className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
-          {error && <p className="mt-4 rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+          {message && <p className="mt-4 rounded-xl border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+          {error && <p className="mt-4 rounded-xl border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{error}</p>}
         </section>
 
         <section className="mt-6">
           {filteredProducts.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
               Tidak ada produk yang cocok dengan filter saat ini. Coba ubah filter atau klik <span className="font-semibold">Reset Filter</span>.
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredProducts.map((product) => (
-                <article key={product.id ?? `${product.name}-${product.purchaseDate}`} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-xs text-slate-500">{product.id ?? "-"}</p>
-                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${product.stock > 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-                      {product.stock > 0 ? "In Stock" : "Out of Stock"}
-                    </span>
-                  </div>
-                  <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{product.name}</h2>
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{product.description}</p>
-                  <p className="mt-3 text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(product.price)}</p>
-                  <div className="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
-                    <p>Stok: {product.stock}</p>
-                    <p>Asal: {product.originCountry}</p>
-                    <p>Jastiper: {product.jastiperId ?? "-"}</p>
-                  </div>
-                </article>
-              ))}
+              {filteredProducts.map((product) => {
+                const checkoutDisabled =
+                  !product.id || !product.jastiperId || product.stock <= 0 || !canCheckoutAsTitiper;
+                return (
+                  <article key={product.id ?? `${product.name}-${product.purchaseDate}`} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="truncate text-xs text-slate-500">{product.id ?? "-"}</p>
+                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${product.stock > 0 ? "bg-slate-200 text-slate-700" : "bg-slate-200 text-slate-700"}`}>
+                        {product.stock > 0 ? "In Stock" : "Out of Stock"}
+                      </span>
+                    </div>
+                    <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{product.name}</h2>
+                    <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{product.description}</p>
+                    <p className="mt-3 text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(product.price)}</p>
+                    <div className="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                      <p>Stok: {product.stock}</p>
+                      <p>Asal: {product.originCountry}</p>
+                      <p>Jastiper: {product.jastiperId ?? "-"}</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!product.jastiperId || loading}
+                      onClick={() => void quickPickJastiper(product.jastiperId)}
+                      className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200"
+                    >
+                      Lihat Katalog Jastiper Ini
+                    </button>
+                    <button
+                      type="button"
+                      disabled={checkoutDisabled}
+                      onClick={() => checkoutFromProduct(product)}
+                      className="mt-4 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-slate-100 dark:text-slate-900 dark:disabled:bg-slate-700"
+                    >
+                      {canCheckoutAsTitiper ? "Checkout Produk Ini" : "Login TITIPER untuk Checkout"}
+                    </button>
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
@@ -222,3 +338,4 @@ export default function CatalogPage() {
     </main>
   );
 }
+

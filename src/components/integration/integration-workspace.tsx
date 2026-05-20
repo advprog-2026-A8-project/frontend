@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, ReactNode, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { gatewayRequest } from "@/lib/gateway-api";
 import { orderApi } from "@/lib/order-api";
+import { readSession, writeSession } from "@/lib/client-session";
 import { SessionState, WalletResponse, WalletTransaction } from "@/types/integration";
 
 const defaultSession: SessionState = { token: "", userId: "", role: "TITIPER" };
@@ -36,7 +37,10 @@ function JsonPane({ data, title }: { data: unknown; title: string }) {
 
 export function IntegrationWorkspace() {
   const [tab, setTab] = useState<Tab>("auth");
-  const [session, setSession] = useState<SessionState>(defaultSession);
+  const [session, setSession] = useState<SessionState>(() => {
+    const local = readSession();
+    return local.token || local.userId ? local : defaultSession;
+  });
   const auth = useMemo(() => bearer(session.token), [session.token]);
 
   const [loading, setLoading] = useState(false);
@@ -82,6 +86,8 @@ export function IntegrationWorkspace() {
     description: "manual action",
     roleHeader: "JASTIPER",
     historyStatus: "",
+    orderId: "",
+    idempotencyKey: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : "wallet-contract-idem-1",
   });
 
   const [orderForm, setOrderForm] = useState({
@@ -133,6 +139,11 @@ export function IntegrationWorkspace() {
             <input className="rounded-md border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="User ID UUID" value={session.userId} onChange={(e) => setSession((p) => ({ ...p, userId: e.target.value }))} />
             <input className="rounded-md border border-slate-300 p-2 text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Role TITIPER/JASTIPER/ADMIN" value={session.role} onChange={(e) => setSession((p) => ({ ...p, role: e.target.value }))} />
           </div>
+          <div className="mt-3">
+            <Button type="button" variant="outline" onClick={() => writeSession(session)}>
+              Simpan ke Local Session
+            </Button>
+          </div>
         </section>
 
         <section className="flex flex-wrap gap-2">
@@ -161,7 +172,8 @@ export function IntegrationWorkspace() {
                 e.preventDefault();
                 run(async () => {
                   const resp = await gatewayRequest<{ data?: { token?: string } }>("auth", "api/auth/login", { method: "POST", body: loginForm });
-                  setSession((p) => ({ ...p, token: resp?.data?.token ?? "" }));
+                  const token = resp?.data?.token ?? (resp as { token?: string })?.token ?? "";
+                  setSession((p) => ({ ...p, token }));
                   return resp;
                 }, "Login berhasil.");
               }}>
@@ -270,7 +282,7 @@ export function IntegrationWorkspace() {
                   <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("inventory", `api/products/${productForm.id}`), "Get product berhasil.")}>Get by ID</Button>
                   <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("inventory", `api/products/search?name=${encodeURIComponent(productForm.search)}`), "Search product berhasil.")}>Search</Button>
                   <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("inventory", "api/products/my-catalog", { headers: invHeaders }), "My catalog berhasil.")}>My Catalog</Button>
-                  <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("inventory", "api/products/admin/monitor", { headers: invHeaders }), "Admin monitor berhasil.")}>Admin Monitor</Button>
+                  <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("inventory", `api/products/jastiper/${session.userId}`), "Produk jastiper berhasil dimuat.")}>By Jastiper</Button>
                 </div>
               </div>
             </Card>
@@ -321,6 +333,8 @@ export function IntegrationWorkspace() {
                 <input className="rounded border p-2 text-sm dark:bg-slate-950" placeholder="Description" value={walletForm.description} onChange={(e) => setWalletForm((p) => ({ ...p, description: e.target.value }))} />
                 <input className="rounded border p-2 text-sm dark:bg-slate-950" placeholder="X-Role for withdraw" value={walletForm.roleHeader} onChange={(e) => setWalletForm((p) => ({ ...p, roleHeader: e.target.value }))} />
                 <input className="rounded border p-2 text-sm dark:bg-slate-950" placeholder="History status (optional)" value={walletForm.historyStatus} onChange={(e) => setWalletForm((p) => ({ ...p, historyStatus: e.target.value }))} />
+                <input className="rounded border p-2 text-sm dark:bg-slate-950" placeholder="Contract Order ID (UUID order)" value={walletForm.orderId} onChange={(e) => setWalletForm((p) => ({ ...p, orderId: e.target.value }))} />
+                <input className="rounded border p-2 font-mono text-sm dark:bg-slate-950" placeholder="Contract Idempotency Key" value={walletForm.idempotencyKey} onChange={(e) => setWalletForm((p) => ({ ...p, idempotencyKey: e.target.value }))} />
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" disabled={loading} onClick={() => run(() => gatewayRequest<WalletResponse>("wallet", `wallet/${session.userId}`, { headers: { Authorization: auth } }), "Get wallet berhasil.")}>Get</Button>
                   <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("wallet", `wallet?userId=${session.userId}`, { method: "POST", headers: { Authorization: auth } }), "Create wallet berhasil.")}>Create</Button>
@@ -334,9 +348,9 @@ export function IntegrationWorkspace() {
             </Card>
             <Card title="Wallet Contract API">
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("wallet", "api/contracts/wallet/check-balance", { method: "POST", body: { userId: session.userId, amount: walletForm.amount } }), "Check balance contract berhasil.")}>Check Balance</Button>
-                <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("wallet", "api/contracts/wallet/deduct", { method: "POST", body: { userId: session.userId, amount: walletForm.amount } }), "Deduct contract berhasil.")}>Deduct</Button>
-                <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("wallet", "api/contracts/wallet/refund", { method: "POST", body: { userId: session.userId, amount: walletForm.amount } }), "Refund contract berhasil.")}>Refund Contract</Button>
+                <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("wallet", "api/contracts/wallet/check-balance", { method: "POST", headers: { Authorization: auth }, body: { userId: session.userId, amount: walletForm.amount } }), "Check balance contract berhasil.")}>Check Balance</Button>
+                <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("wallet", "api/contracts/wallet/deduct", { method: "POST", headers: { Authorization: auth }, body: { userId: session.userId, orderId: walletForm.orderId, amount: walletForm.amount, idempotencyKey: walletForm.idempotencyKey } }), "Deduct contract berhasil.")}>Deduct</Button>
+                <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("wallet", "api/contracts/wallet/refund", { method: "POST", headers: { Authorization: auth }, body: { userId: session.userId, orderId: walletForm.orderId, amount: walletForm.amount, idempotencyKey: walletForm.idempotencyKey } }), "Refund contract berhasil.")}>Refund Contract</Button>
               </div>
             </Card>
           </section>
@@ -388,9 +402,10 @@ export function IntegrationWorkspace() {
         )}
 
         <JsonPane title="Latest Response" data={payload} />
-        {message && <p className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
-        {error && <p className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+        {message && <p className="rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+        {error && <p className="rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{error}</p>}
       </div>
     </main>
   );
 }
+

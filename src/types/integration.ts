@@ -6,6 +6,12 @@ export interface SessionState {
   role: string;
 }
 
+export interface CheckoutDraft {
+  productId: string;
+  jastiperId: string;
+  productName?: string;
+}
+
 export interface ApiEnvelope<T> {
   message?: string;
   data?: T;

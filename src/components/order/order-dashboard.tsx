@@ -1,10 +1,10 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { orderApi } from "@/lib/order-api";
-import { readSession } from "@/lib/client-session";
+import { clearCheckoutDraft, readCheckoutDraft, readSession } from "@/lib/client-session";
 import { Order, OrderStatus } from "@/types/order";
 
 type Role = "titiper" | "jastiper" | "admin";
@@ -36,12 +36,12 @@ const STATUS_ACTIONS_BY_ROLE: Record<Role, Partial<Record<OrderStatus, OrderStat
 };
 
 const STATUS_BADGES: Record<OrderStatus, string> = {
-  PENDING: "bg-amber-200 text-amber-900",
-  PAID: "bg-emerald-200 text-emerald-900",
-  PURCHASED: "bg-sky-200 text-sky-900",
-  SHIPPED: "bg-indigo-200 text-indigo-900",
+  PENDING: "bg-slate-200 text-slate-900",
+  PAID: "bg-slate-200 text-slate-900",
+  PURCHASED: "bg-slate-200 text-slate-900",
+  SHIPPED: "bg-slate-200 text-slate-900",
   COMPLETED: "bg-green-200 text-green-900",
-  CANCELLED: "bg-rose-200 text-rose-900",
+  CANCELLED: "bg-slate-200 text-slate-900",
 };
 
 function newIdempotencyKey() {
@@ -57,22 +57,73 @@ function mapRole(raw: string): Role {
   return "titiper";
 }
 
+function formatLastUpdate(iso: string | null) {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleTimeString("id-ID", { hour12: false });
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const normalized = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+    const json = atob(normalized);
+    const parsed = JSON.parse(json);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function jwtUserId(payload: Record<string, unknown> | null): string {
+  if (!payload) return "";
+  const direct = payload.userId;
+  if (typeof direct === "string") return direct;
+  const fallback = payload.id;
+  return typeof fallback === "string" ? fallback : "";
+}
+
+function checkoutForbiddenMessage() {
+  return "Checkout ditolak karena token login belum memuat claim userId (UUID). Logout lalu login ulang setelah backend auth terbaru aktif.";
+}
+
+function isSelfPurchase(userId: string, jastiperId: string) {
+  return userId.trim().toLowerCase() === jastiperId.trim().toLowerCase();
+}
+
 export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps) {
   const session = useMemo(() => readSession(), []);
+  const checkoutDraft = useMemo(() => readCheckoutDraft(), []);
   const role = useMemo(() => mapRole(session.role), [session.role]);
+  const tokenPayload = useMemo(() => decodeJwtPayload(session.token), [session.token]);
+  const tokenUserId = useMemo(() => jwtUserId(tokenPayload), [tokenPayload]);
+  const canCheckout = role === "titiper";
+  const hasCatalogDraft = Boolean(checkoutDraft?.productId && checkoutDraft?.jastiperId);
   const authHeader = useMemo(() => (session.token ? `Bearer ${session.token}` : undefined), [session.token]);
   const sessionUserId = session.userId.trim();
+  const hasTokenUserIdClaim = Boolean(tokenUserId.trim());
+  const tokenUserIdMismatch = Boolean(
+    hasTokenUserIdClaim && sessionUserId && tokenUserId.trim() !== sessionUserId
+  );
 
-  const [view, setView] = useState<ViewMode>(initialView);
+  const [view, setView] = useState<ViewMode>(canCheckout ? initialView : "list");
   const [jastiperId, setJastiperId] = useState("");
   const [checkoutForm, setCheckoutForm] = useState({
-    productId: "",
-    jastiperId: "",
+    productId: checkoutDraft?.productId ?? "",
+    jastiperId: checkoutDraft?.jastiperId ?? "",
     jumlah: 1,
     alamatPengiriman: "",
     voucherCode: "",
     idempotencyKey: newIdempotencyKey(),
   });
+  const isSelfPurchaseDraft = Boolean(
+    hasCatalogDraft &&
+    checkoutForm.jastiperId &&
+    isSelfPurchase(sessionUserId, checkoutForm.jastiperId)
+  );
+  const [selectedProductName] = useState(checkoutDraft?.productName ?? "");
   const [ratingDrafts, setRatingDrafts] = useState<Record<string, { jastiperRating: number; productRating: number }>>(
     {}
   );
@@ -80,11 +131,13 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [autoRefreshList, setAutoRefreshList] = useState(true);
+  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
 
   const canUseOrder = Boolean(authHeader && sessionUserId);
   const currentJastiperId = role === "jastiper" ? sessionUserId : jastiperId.trim();
 
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     if (!canUseOrder) return;
     setLoading(true);
     setError("");
@@ -114,16 +167,41 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
         const active = await orderApi.getAdminActive({ authorization: authHeader });
         setSegments([{ title: "Order Aktif Sistem", orders: active, emptyLabel: "Tidak ada order aktif." }]);
       }
+      setLastLoadedAt(new Date().toISOString());
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat data order.");
     } finally {
       setLoading(false);
     }
-  }
+  }, [authHeader, canUseOrder, role, sessionUserId]);
 
   async function onCheckoutSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canUseOrder) return;
+    if (!canCheckout) {
+      setError("Checkout hanya dapat dilakukan oleh akun TITIPER.");
+      return;
+    }
+    if (!hasTokenUserIdClaim) {
+      setError(checkoutForbiddenMessage());
+      return;
+    }
+    if (tokenUserIdMismatch) {
+      setError("Token login tidak sinkron dengan user profile. Logout lalu login ulang sebelum checkout.");
+      return;
+    }
+    if (!hasCatalogDraft) {
+      setError("Checkout wajib dimulai dari katalog. Pilih produk terlebih dahulu.");
+      return;
+    }
+    if (!checkoutForm.productId.trim() || !checkoutForm.jastiperId.trim()) {
+      setError("Pilih produk dari katalog terlebih dahulu sebelum checkout.");
+      return;
+    }
+    if (isSelfPurchase(sessionUserId, checkoutForm.jastiperId)) {
+      setError("Checkout ditolak. Jastiper tidak boleh membeli barang miliknya sendiri.");
+      return;
+    }
     setLoading(true);
     setError("");
     setMessage("");
@@ -148,10 +226,12 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
         voucherCode: "",
         idempotencyKey: newIdempotencyKey(),
       });
+      clearCheckoutDraft();
       setView("list");
       await loadOrders();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Checkout gagal.");
+      const message = err instanceof Error ? err.message : "Checkout gagal.";
+      setError(message.toLowerCase().includes("forbidden") ? checkoutForbiddenMessage() : message);
       setLoading(false);
     }
   }
@@ -204,6 +284,19 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
     }
   }
 
+  useEffect(() => {
+    if (view !== "list") return;
+    void loadOrders();
+  }, [view, loadOrders]);
+
+  useEffect(() => {
+    if (view !== "list" || !autoRefreshList) return;
+    const id = window.setInterval(() => {
+      void loadOrders();
+    }, 20000);
+    return () => window.clearInterval(id);
+  }, [view, autoRefreshList, loadOrders]);
+
   if (!canUseOrder) {
     return (
       <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6">
@@ -226,35 +319,91 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
   }
 
   return (
-    <main className="bg-[linear-gradient(165deg,#fff7ed_0%,#fefce8_35%,#dbeafe_100%)] dark:bg-[linear-gradient(165deg,#0b1220_0%,#111827_50%,#1f2937_100%)]">
+    <main className="app-page">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6">
-        <section className="rounded-3xl border border-white/60 bg-white/85 p-6 shadow-lg dark:border-slate-700 dark:bg-slate-900/80">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-orange-600">Order Center</p>
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-700 dark:bg-slate-900/80">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Order Center</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Kelola Order Jastip Anda</h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-            Login sebagai: <span className="font-semibold uppercase">{role}</span> • User ID: {sessionUserId}
+            Login sebagai: <span className="font-semibold uppercase">{role}</span> | User ID: {sessionUserId}
           </p>
+          {canCheckout && !hasTokenUserIdClaim && (
+            <p className="mt-3 rounded-lg border border-slate-300 bg-slate-100 p-3 text-xs text-slate-700">
+              Token sesi Anda belum memuat `userId` untuk validasi checkout. Silakan login ulang setelah backend auth terbaru dijalankan.
+            </p>
+          )}
+          {canCheckout && tokenUserIdMismatch && (
+            <p className="mt-3 rounded-lg border border-slate-300 bg-slate-100 p-3 text-xs text-slate-700">
+              User ID pada token dan session profile berbeda. Logout lalu login ulang agar checkout tidak ditolak.
+            </p>
+          )}
           <div className="mt-5 flex flex-wrap gap-2">
-            <Button variant={view === "checkout" ? "default" : "outline"} onClick={() => setView("checkout")}>Checkout</Button>
+            {canCheckout && (
+              <Button variant={view === "checkout" ? "default" : "outline"} onClick={() => setView("checkout")}>
+                Checkout
+              </Button>
+            )}
             <Button variant={view === "list" ? "default" : "outline"} onClick={() => setView("list")}>Lihat Order</Button>
           </div>
         </section>
 
-        {view === "checkout" && (
+        {view === "checkout" && canCheckout && (
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <h2 className="text-lg font-semibold">Checkout Baru</h2>
+            {selectedProductName && (
+              <p className="mt-2 rounded-lg border border-slate-300 bg-slate-100 p-2 text-xs text-slate-700">
+                Produk dipilih dari katalog: <span className="font-semibold">{selectedProductName}</span>
+              </p>
+            )}
+            {isSelfPurchaseDraft && (
+              <p className="mt-2 rounded-lg border border-slate-300 bg-slate-100 p-2 text-xs text-slate-700">
+                Produk ini milik akun Anda sendiri. Pilih produk jastiper lain untuk checkout.
+              </p>
+            )}
+            {!hasCatalogDraft && (
+              <p className="mt-2 rounded-lg border border-slate-300 bg-slate-100 p-2 text-xs text-slate-700">
+                Pilih produk dari halaman katalog agar product dan jastiper otomatis terisi.
+              </p>
+            )}
             <form onSubmit={onCheckoutSubmit} className="mt-4 grid gap-3 md:grid-cols-2">
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Product ID" value={checkoutForm.productId} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, productId: e.target.value }))} required />
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Jastiper ID" value={checkoutForm.jastiperId} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jastiperId: e.target.value }))} required />
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" type="number" min={1} placeholder="Jumlah" value={checkoutForm.jumlah} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jumlah: Number(e.target.value) }))} required />
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Voucher Code (opsional)" value={checkoutForm.voucherCode} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, voucherCode: e.target.value }))} />
-              <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" placeholder="Alamat Pengiriman" value={checkoutForm.alamatPengiriman} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, alamatPengiriman: e.target.value }))} required />
+              {hasCatalogDraft ? (
+                <div className="rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm dark:border-slate-700 dark:bg-slate-950/60 md:col-span-2">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Produk Checkout</p>
+                  <p className="mt-1 font-semibold">{selectedProductName || "-"}</p>
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">Product ID: <span className="font-mono">{checkoutForm.productId}</span></p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300">Jastiper ID: <span className="font-mono">{checkoutForm.jastiperId}</span></p>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-300 p-3 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300 md:col-span-2">
+                  Product dan jastiper akan terisi otomatis setelah Anda memilih produk dari katalog.
+                </div>
+              )}
+              <label className="grid gap-1 text-sm">
+                Jumlah
+                <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" type="number" min={1} placeholder="Jumlah" value={checkoutForm.jumlah} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, jumlah: Number(e.target.value) }))} required />
+              </label>
+              <label className="grid gap-1 text-sm">
+                Voucher Code (opsional)
+                <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Voucher Code (opsional)" value={checkoutForm.voucherCode} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, voucherCode: e.target.value }))} />
+              </label>
+              <label className="grid gap-1 text-sm md:col-span-2">
+                Alamat Pengiriman
+                <input className="rounded-lg border border-slate-300 p-2 dark:border-slate-700 dark:bg-slate-950" placeholder="Alamat Pengiriman" value={checkoutForm.alamatPengiriman} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, alamatPengiriman: e.target.value }))} required />
+              </label>
               <div className="rounded-lg border border-dashed border-slate-300 p-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300 md:col-span-2">
                 User ID checkout akan otomatis memakai session login: <span className="font-mono">{sessionUserId}</span>
               </div>
-              <input className="rounded-lg border border-slate-300 p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950 md:col-span-2" placeholder="Idempotency-Key (opsional)" value={checkoutForm.idempotencyKey} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: e.target.value }))} />
+              <div className="flex flex-wrap gap-3 md:col-span-2">
+                <Link href="/catalog" className="text-xs font-semibold text-slate-600 hover:underline dark:text-slate-300">
+                  {hasCatalogDraft ? "Ganti produk dari katalog" : "Pilih produk dari katalog"}
+                </Link>
+              </div>
+              <label className="grid gap-1 text-sm md:col-span-2">
+                Idempotency-Key (opsional)
+                <input className="rounded-lg border border-slate-300 p-2 font-mono text-sm dark:border-slate-700 dark:bg-slate-950" placeholder="Idempotency-Key (opsional)" value={checkoutForm.idempotencyKey} onChange={(e) => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: e.target.value }))} />
+              </label>
               <div className="md:col-span-2 flex gap-2">
-                <Button type="submit" disabled={loading}>{loading ? "Memproses..." : "Checkout Sekarang"}</Button>
+                <Button type="submit" disabled={loading || !hasCatalogDraft || isSelfPurchaseDraft}>{loading ? "Memproses..." : "Checkout Sekarang"}</Button>
                 <Button type="button" variant="outline" onClick={() => setCheckoutForm((prev) => ({ ...prev, idempotencyKey: newIdempotencyKey() }))}>Generate Key</Button>
               </div>
             </form>
@@ -264,6 +413,17 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
         {view === "list" && (
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-4 flex flex-wrap items-end gap-3">
+              <label className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-xs dark:border-slate-700">
+                <input
+                  type="checkbox"
+                  checked={autoRefreshList}
+                  onChange={(e) => setAutoRefreshList(e.target.checked)}
+                />
+                Auto refresh (20 detik)
+              </label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Update terakhir: {formatLastUpdate(lastLoadedAt)}
+              </p>
               {role !== "titiper" && role !== "jastiper" && (
                 <label className="flex flex-col gap-1 text-sm">
                   Jastiper ID (untuk cancel)
@@ -353,9 +513,11 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
           </section>
         )}
 
-        {message && <p className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p>}
-        {error && <p className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+        {message && <p className="rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{message}</p>}
+        {error && <p className="rounded-lg border border-slate-300 bg-slate-100 p-3 text-sm text-slate-700">{error}</p>}
       </div>
     </main>
   );
 }
+
+

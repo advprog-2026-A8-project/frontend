@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { MouseEvent, useMemo } from "react";
+import { MouseEvent, useMemo, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { DarkModeToggle } from "@/components/common/darkmode-toggle";
 import { clearCheckoutDraft, clearSession, isSessionAuthenticated, readSession } from "@/lib/client-session";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { SessionState } from "@/types/integration";
 
 type NavItem = {
   href: string;
@@ -26,11 +27,25 @@ const navItems: NavItem[] = [
   { href: "/jastiper", label: "Jastiper", protected: true, jastiperOnly: true },
   { href: "/admin", label: "Admin", protected: true, adminOnly: true },
 ];
+const EMPTY_SESSION: SessionState = { token: "", userId: "", role: "TITIPER" };
+const subscribe = () => () => {};
+const SESSION_STORAGE_KEY = "json_frontend_session";
 
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const session = useMemo(() => readSession(), [pathname]);
+  const sessionRaw = useSyncExternalStore(
+    subscribe,
+    () => {
+      if (typeof window === "undefined") return "";
+      return window.localStorage.getItem(SESSION_STORAGE_KEY) ?? "";
+    },
+    () => ""
+  );
+  const session = useMemo(() => {
+    if (!sessionRaw) return EMPTY_SESSION;
+    return readSession();
+  }, [sessionRaw, pathname]);
   const role = session.role.toUpperCase();
   const isAuthenticated = isSessionAuthenticated(session);
   const isAdmin = role.includes("ADMIN");

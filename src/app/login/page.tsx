@@ -90,6 +90,9 @@ function LoginPageContent() {
       const jwtPayload = decodeJwtPayload(token);
       const fallbackUserId = userIdFromJwt(jwtPayload);
       const fallbackRole = roleFromJwt(jwtPayload);
+      if (!fallbackUserId.trim()) {
+        throw new Error("Token login belum memuat claim userId UUID. Restart be-authentication terbaru lalu login ulang.");
+      }
       let resolvedUserId = fallbackUserId;
       let resolvedRole = fallbackRole;
 
@@ -104,15 +107,14 @@ function LoginPageContent() {
           profile?.userId ??
           fallbackUserId;
         resolvedRole = (profile?.data?.role ?? profile?.role ?? fallbackRole) || "TITIPER";
+        if (resolvedUserId.trim() && resolvedUserId.trim() !== fallbackUserId.trim()) {
+          throw new Error("userId di profile berbeda dengan claim JWT. Sinkronkan be-authentication lalu login ulang.");
+        }
       } catch {
-        resolvedUserId = fallbackUserId;
-        resolvedRole = fallbackRole;
+        // fallback ke data token saat profile gagal diambil
       }
 
-      if (!resolvedUserId.trim()) {
-        throw new Error("Login belum dapat melanjutkan karena userId tidak ditemukan di token/profile.");
-      }
-      writeSession({ token, userId: resolvedUserId, role: resolvedRole });
+      writeSession({ token, userId: fallbackUserId, role: resolvedRole || fallbackRole });
 
       setMessage("Login berhasil. Mengarahkan ke halaman tujuan...");
       const nextPath = safeNextPath(searchParams.get("next"));

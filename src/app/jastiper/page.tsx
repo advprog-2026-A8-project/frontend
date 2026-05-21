@@ -28,6 +28,11 @@ const ORDER_STATUS_STYLE: Record<string, string> = {
   CANCELLED: "bg-slate-200 text-slate-700",
 };
 
+function pagedData<T>(items: T[], page: number, size: number) {
+  const start = (page - 1) * size;
+  return items.slice(start, start + size);
+}
+
 export default function JastiperPage() {
   const router = useRouter();
   const session = useMemo(() => readSession(), []);
@@ -41,6 +46,14 @@ export default function JastiperPage() {
   const [todoOrders, setTodoOrders] = useState<Order[]>([]);
   const [processingOrders, setProcessingOrders] = useState<Order[]>([]);
   const [completedOrders, setCompletedOrders] = useState<Order[]>([]);
+
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [catalogPageSize, setCatalogPageSize] = useState(6);
+  const [todoPage, setTodoPage] = useState(1);
+  const [processingPage, setProcessingPage] = useState(1);
+  const [completedPage, setCompletedPage] = useState(1);
+  const orderPageSize = 5;
+
   const [productForm, setProductForm] = useState({
     id: "",
     name: "",
@@ -53,6 +66,27 @@ export default function JastiperPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  const catalogTotalPages = Math.max(1, Math.ceil(catalog.length / catalogPageSize));
+  const todoTotalPages = Math.max(1, Math.ceil(todoOrders.length / orderPageSize));
+  const processingTotalPages = Math.max(1, Math.ceil(processingOrders.length / orderPageSize));
+  const completedTotalPages = Math.max(1, Math.ceil(completedOrders.length / orderPageSize));
+
+  useEffect(() => {
+    if (catalogPage > catalogTotalPages) setCatalogPage(catalogTotalPages);
+  }, [catalogPage, catalogTotalPages]);
+
+  useEffect(() => {
+    if (todoPage > todoTotalPages) setTodoPage(todoTotalPages);
+  }, [todoPage, todoTotalPages]);
+
+  useEffect(() => {
+    if (processingPage > processingTotalPages) setProcessingPage(processingTotalPages);
+  }, [processingPage, processingTotalPages]);
+
+  useEffect(() => {
+    if (completedPage > completedTotalPages) setCompletedPage(completedTotalPages);
+  }, [completedPage, completedTotalPages]);
 
   function resetProductForm() {
     setProductForm({
@@ -79,9 +113,7 @@ export default function JastiperPage() {
   }
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace("/login?next=/jastiper");
-    }
+    if (!isAuthenticated) router.replace("/login?next=/jastiper");
   }, [isAuthenticated, router]);
 
   async function run(action: () => Promise<void>, ok?: string) {
@@ -103,6 +135,7 @@ export default function JastiperPage() {
       headers: inventoryHeaders,
     });
     setCatalog(data);
+    setCatalogPage(1);
   }
 
   async function loadOrders() {
@@ -114,6 +147,9 @@ export default function JastiperPage() {
     setTodoOrders(todo);
     setProcessingOrders(processing);
     setCompletedOrders(completed);
+    setTodoPage(1);
+    setProcessingPage(1);
+    setCompletedPage(1);
   }
 
   async function loadAll() {
@@ -208,9 +244,7 @@ export default function JastiperPage() {
   }
 
   useEffect(() => {
-    if (isAuthenticated && canAccess) {
-      loadAll();
-    }
+    if (isAuthenticated && canAccess) void loadAll();
   }, [isAuthenticated, canAccess]);
 
   if (!isAuthenticated) {
@@ -237,13 +271,17 @@ export default function JastiperPage() {
     );
   }
 
+  const catalogRows = pagedData(catalog, catalogPage, catalogPageSize);
+  const todoRows = pagedData(todoOrders, todoPage, orderPageSize);
+  const processingRows = pagedData(processingOrders, processingPage, orderPageSize);
+  const completedRows = pagedData(completedOrders, completedPage, orderPageSize);
+
   return (
     <main className="app-page">
       <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-300/70 dark:border-slate-700 dark:bg-slate-900/80 sm:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Jastiper Center</p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Kelola Katalog dan Order Jastip</h1>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">User: {session.userId}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button onClick={loadAll} disabled={loading} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">
               {loading ? "Loading..." : "Refresh Dashboard"}
@@ -313,12 +351,29 @@ export default function JastiperPage() {
 
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-lg font-semibold">Katalog Saya</h2>
+            <div className="flex items-end justify-between gap-2">
+              <h2 className="text-lg font-semibold">Katalog Saya</h2>
+              <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                <label>Per halaman</label>
+                <select
+                  className="rounded-md border border-slate-300 bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-950"
+                  value={catalogPageSize}
+                  onChange={(e) => {
+                    setCatalogPageSize(Number(e.target.value));
+                    setCatalogPage(1);
+                  }}
+                >
+                  <option value={6}>6</option>
+                  <option value={9}>9</option>
+                  <option value={12}>12</option>
+                </select>
+              </div>
+            </div>
             {catalog.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">Belum ada produk di katalog jastiper.</p>
             ) : (
               <div className="mt-3 space-y-3">
-                {catalog.map((item) => (
+                {catalogRows.map((item) => (
                   <article key={item.id ?? `${item.name}-${item.purchaseDate}`} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
                     <p className="text-xs text-slate-500">{item.id}</p>
                     <p className="font-semibold">{item.name}</p>
@@ -342,6 +397,25 @@ export default function JastiperPage() {
                     </div>
                   </article>
                 ))}
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCatalogPage((prev) => Math.max(1, prev - 1))}
+                    disabled={catalogPage <= 1}
+                    className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold disabled:opacity-50 dark:border-slate-700"
+                  >
+                    Sebelumnya
+                  </button>
+                  <span className="text-xs text-slate-600 dark:text-slate-300">{catalogPage} / {catalogTotalPages}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCatalogPage((prev) => Math.min(catalogTotalPages, prev + 1))}
+                    disabled={catalogPage >= catalogTotalPages}
+                    className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold disabled:opacity-50 dark:border-slate-700"
+                  >
+                    Berikutnya
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -350,13 +424,20 @@ export default function JastiperPage() {
             <h2 className="text-lg font-semibold">Antrian Order Jastiper</h2>
             <div className="mt-3 space-y-4">
               {[
-                { title: "Perlu Diproses", items: todoOrders },
-                { title: "Sedang Diproses", items: processingOrders },
-                { title: "Selesai / Dibatalkan", items: completedOrders },
+                { title: "Perlu Diproses", items: todoRows, all: todoOrders, page: todoPage, setPage: setTodoPage, totalPages: todoTotalPages },
+                { title: "Sedang Diproses", items: processingRows, all: processingOrders, page: processingPage, setPage: setProcessingPage, totalPages: processingTotalPages },
+                { title: "Selesai / Dibatalkan", items: completedRows, all: completedOrders, page: completedPage, setPage: setCompletedPage, totalPages: completedTotalPages },
               ].map((group) => (
                 <div key={group.title}>
-                  <p className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{group.title}</p>
-                  {group.items.length === 0 ? (
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{group.title}</p>
+                    {group.all.length > 0 && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {(group.page - 1) * orderPageSize + 1}-{Math.min(group.page * orderPageSize, group.all.length)} / {group.all.length}
+                      </p>
+                    )}
+                  </div>
+                  {group.all.length === 0 ? (
                     <p className="rounded-lg border border-dashed border-slate-300 p-3 text-xs text-slate-500 dark:border-slate-700">Kosong.</p>
                   ) : (
                     <div className="space-y-2">
@@ -394,6 +475,25 @@ export default function JastiperPage() {
                           </div>
                         </article>
                       ))}
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => group.setPage((prev) => Math.max(1, prev - 1))}
+                          disabled={group.page <= 1}
+                          className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold disabled:opacity-50 dark:border-slate-700"
+                        >
+                          Sebelumnya
+                        </button>
+                        <span className="text-xs text-slate-600 dark:text-slate-300">{group.page} / {group.totalPages}</span>
+                        <button
+                          type="button"
+                          onClick={() => group.setPage((prev) => Math.min(group.totalPages, prev + 1))}
+                          disabled={group.page >= group.totalPages}
+                          className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold disabled:opacity-50 dark:border-slate-700"
+                        >
+                          Berikutnya
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

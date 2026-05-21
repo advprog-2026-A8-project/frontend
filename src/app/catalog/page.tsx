@@ -16,6 +16,18 @@ type Product = {
   jastiperId?: string;
 };
 
+type JastiperInfo = {
+  name: string;
+  identifier: string;
+};
+
+type ProfileLookupPayload = {
+  data?: {
+    username?: string;
+  };
+  username?: string;
+};
+
 function formatCurrency(value: number) {
   return `Rp ${Number(value).toLocaleString("id-ID")}`;
 }
@@ -25,11 +37,59 @@ function formatLastUpdate(iso: string | null) {
   return new Date(iso).toLocaleTimeString("id-ID", { hour12: false });
 }
 
+function fallbackJastiperInfo(jastiperId: string): JastiperInfo {
+  if (jastiperId.includes("@")) {
+    return {
+      name: jastiperId.split("@")[0],
+      identifier: jastiperId,
+    };
+  }
+  return {
+    name: "Jastiper",
+    identifier: jastiperId,
+  };
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  try {
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const normalized = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+    const json = atob(normalized);
+    const parsed = JSON.parse(json);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function jwtSubject(payload: Record<string, unknown> | null): string {
+  if (!payload) return "";
+  const subject = payload.sub;
+  return typeof subject === "string" ? subject : "";
+}
+
+function jwtUserId(payload: Record<string, unknown> | null): string {
+  if (!payload) return "";
+  const direct = payload.userId;
+  if (typeof direct === "string") return direct;
+  const legacy = payload.id;
+  return typeof legacy === "string" ? legacy : "";
+}
+
 export default function CatalogPage() {
   const router = useRouter();
   const session = useMemo(() => readSession(), []);
   const role = session.role.toUpperCase();
-  const canCheckoutAsTitiper = isSessionAuthenticated(session) && role.includes("TITIPER");
+  const auth = session.token ? `Bearer ${session.token}` : "";
+  const tokenPayload = useMemo(() => decodeJwtPayload(session.token), [session.token]);
+  const tokenSubject = useMemo(() => jwtSubject(tokenPayload), [tokenPayload]);
+  const tokenUserId = useMemo(() => jwtUserId(tokenPayload), [tokenPayload]);
+  const canCheckoutAsBuyer =
+    isSessionAuthenticated(session) && (role.includes("TITIPER") || role.includes("JASTIPER"));
+
   const [search, setSearch] = useState("");
   const [jastiperSearch, setJastiperSearch] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
@@ -38,11 +98,16 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
+
   const [stockFilter, setStockFilter] = useState<"all" | "in-stock" | "out-of-stock">("all");
   const [countryFilter, setCountryFilter] = useState("all");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "price-asc" | "price-desc" | "name-asc">("default");
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(9);
+  const [jastiperInfoMap, setJastiperInfoMap] = useState<Record<string, JastiperInfo>>({});
 
   const availableCountries = useMemo(
     () => Array.from(new Set(products.map((item) => item.originCountry).filter(Boolean))).sort(),
@@ -52,38 +117,41 @@ export default function CatalogPage() {
   const filteredProducts = useMemo(() => {
     let data = [...products];
 
-    if (stockFilter === "in-stock") {
-      data = data.filter((item) => item.stock > 0);
-    } else if (stockFilter === "out-of-stock") {
-      data = data.filter((item) => item.stock <= 0);
-    }
-
-    if (countryFilter !== "all") {
-      data = data.filter((item) => item.originCountry === countryFilter);
-    }
+    if (stockFilter === "in-stock") data = data.filter((item) => item.stock > 0);
+    if (stockFilter === "out-of-stock") data = data.filter((item) => item.stock <= 0);
+    if (countryFilter !== "all") data = data.filter((item) => item.originCountry === countryFilter);
 
     const min = Number(minPrice);
-    if (minPrice !== "" && !Number.isNaN(min)) {
-      data = data.filter((item) => Number(item.price) >= min);
-    }
+    if (minPrice !== "" && !Number.isNaN(min)) data = data.filter((item) => Number(item.price) >= min);
 
     const max = Number(maxPrice);
-    if (maxPrice !== "" && !Number.isNaN(max)) {
-      data = data.filter((item) => Number(item.price) <= max);
-    }
+    if (maxPrice !== "" && !Number.isNaN(max)) data = data.filter((item) => Number(item.price) <= max);
 
-    if (sortBy === "price-asc") {
-      data.sort((a, b) => Number(a.price) - Number(b.price));
-    } else if (sortBy === "price-desc") {
-      data.sort((a, b) => Number(b.price) - Number(a.price));
-    } else if (sortBy === "name-asc") {
-      data.sort((a, b) => a.name.localeCompare(b.name, "id"));
-    }
+    if (sortBy === "price-asc") data.sort((a, b) => Number(a.price) - Number(b.price));
+    if (sortBy === "price-desc") data.sort((a, b) => Number(b.price) - Number(a.price));
+    if (sortBy === "name-asc") data.sort((a, b) => a.name.localeCompare(b.name, "id"));
 
     return data;
   }, [products, stockFilter, countryFilter, minPrice, maxPrice, sortBy]);
 
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredProducts.length / pageSize)),
+    [filteredProducts.length, pageSize]
+  );
+
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredProducts.slice(start, start + pageSize);
+  }, [currentPage, filteredProducts, pageSize]);
+
+  const showingFrom = filteredProducts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const showingTo = Math.min(currentPage * pageSize, filteredProducts.length);
+
   const inStockCount = useMemo(() => products.filter((item) => item.stock > 0).length, [products]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   function resetFilters() {
     setStockFilter("all");
@@ -91,6 +159,7 @@ export default function CatalogPage() {
     setMinPrice("");
     setMaxPrice("");
     setSortBy("default");
+    setCurrentPage(1);
   }
 
   async function run(action: () => Promise<Product[]>, successMessage?: string) {
@@ -101,6 +170,7 @@ export default function CatalogPage() {
       const data = await action();
       setProducts(data);
       setLastLoadedAt(new Date().toISOString());
+      setCurrentPage(1);
       if (successMessage) setMessage(successMessage);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan saat memuat katalog.");
@@ -110,7 +180,7 @@ export default function CatalogPage() {
   }
 
   async function loadAll() {
-    await run(() => gatewayRequest<Product[]>("inventory", "api/products/list"), "Katalog terbaru berhasil dimuat.");
+    await run(() => gatewayRequest<Product[]>("inventory", "api/products/list"));
   }
 
   async function doSearch(event?: FormEvent) {
@@ -120,10 +190,7 @@ export default function CatalogPage() {
       await loadAll();
       return;
     }
-    await run(
-      () => gatewayRequest<Product[]>("inventory", `api/products/search?name=${encodeURIComponent(keyword)}`),
-      `Hasil pencarian untuk "${keyword}" ditampilkan.`
-    );
+    await run(() => gatewayRequest<Product[]>("inventory", `api/products/search?name=${encodeURIComponent(keyword)}`));
   }
 
   async function searchByJastiper(event?: FormEvent) {
@@ -133,29 +200,31 @@ export default function CatalogPage() {
       await loadAll();
       return;
     }
-    await run(
-      () => gatewayRequest<Product[]>("inventory", `api/products/jastiper/${encodeURIComponent(jastiperId)}`),
-      `Katalog jastiper ${jastiperId} berhasil dimuat.`
-    );
+    await run(() => gatewayRequest<Product[]>("inventory", `api/products/jastiper/${encodeURIComponent(jastiperId)}`));
   }
 
   async function quickPickJastiper(jastiperId?: string) {
     if (!jastiperId) return;
     setJastiperSearch(jastiperId);
-    await run(
-      () => gatewayRequest<Product[]>("inventory", `api/products/jastiper/${encodeURIComponent(jastiperId)}`),
-      `Katalog jastiper ${jastiperId} berhasil dimuat.`
-    );
+    await run(() => gatewayRequest<Product[]>("inventory", `api/products/jastiper/${encodeURIComponent(jastiperId)}`));
+  }
+
+  function isOwnProduct(product: Product) {
+    if (!product.jastiperId) return false;
+    const owner = product.jastiperId.trim().toLowerCase();
+    const identities = new Set<string>();
+    if (session.userId) identities.add(session.userId.trim().toLowerCase());
+    if (tokenUserId) identities.add(tokenUserId.trim().toLowerCase());
+    if (tokenSubject) identities.add(tokenSubject.trim().toLowerCase());
+    return identities.has(owner);
   }
 
   function checkoutFromProduct(product: Product) {
-    if (!canCheckoutAsTitiper) {
-      if (!isSessionAuthenticated(session)) {
-        router.push("/login?next=/catalog");
-      }
+    if (!canCheckoutAsBuyer) {
+      if (!isSessionAuthenticated(session)) router.push("/login?next=/catalog");
       return;
     }
-    if (!product.id || !product.jastiperId) return;
+    if (!product.id || !product.jastiperId || isOwnProduct(product)) return;
     writeCheckoutDraft({
       productId: product.id,
       jastiperId: product.jastiperId,
@@ -165,7 +234,7 @@ export default function CatalogPage() {
   }
 
   useEffect(() => {
-    loadAll();
+    void loadAll();
   }, []);
 
   useEffect(() => {
@@ -183,18 +252,66 @@ export default function CatalogPage() {
     return () => window.clearInterval(id);
   }, [autoRefresh, search, jastiperSearch]);
 
+  useEffect(() => {
+    const uniqueJastiperIds = Array.from(
+      new Set(products.map((item) => item.jastiperId?.trim()).filter((item): item is string => Boolean(item)))
+    );
+    if (uniqueJastiperIds.length === 0) {
+      setJastiperInfoMap({});
+      return;
+    }
+
+    let cancelled = false;
+    const resolveInfos = async () => {
+      const entries = await Promise.all(
+        uniqueJastiperIds.map(async (jastiperId) => {
+          const fallback = fallbackJastiperInfo(jastiperId);
+          try {
+            const query = jastiperId.includes("@")
+              ? `email=${encodeURIComponent(jastiperId)}`
+              : `id=${encodeURIComponent(jastiperId)}`;
+            const payload = await gatewayRequest<ProfileLookupPayload>(
+              "auth",
+              `api/profile/lookup?${query}`,
+              auth ? { headers: { Authorization: auth } } : undefined
+            );
+            const profile = payload.data ?? payload;
+            return [
+              jastiperId,
+              {
+                name: profile.username || fallback.name,
+                identifier: jastiperId,
+              },
+            ] as const;
+          } catch {
+            return [jastiperId, fallback] as const;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setJastiperInfoMap(Object.fromEntries(entries));
+      }
+    };
+
+    void resolveInfos();
+    return () => {
+      cancelled = true;
+    };
+  }, [auth, products]);
+
   return (
     <main className="app-page">
       <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6">
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-300/70 dark:border-slate-700 dark:bg-slate-900/80 sm:p-8">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-600">Catalog</p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Cari Produk Titipan dari Berbagai Negara</h1>
+          <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">Temukan Produk Titipan</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
-            Jelajahi barang titipan, cek stok live, lalu checkout langsung dari kartu produk.
+            Cari barang dari jastiper tepercaya, filter sesuai budget, lalu checkout langsung dari kartu produk.
           </p>
-          {!canCheckoutAsTitiper && (
+          {!canCheckoutAsBuyer && (
             <p className="mt-3 rounded-lg border border-slate-300 bg-slate-100 p-3 text-xs text-slate-700">
-              Checkout hanya tersedia untuk akun TITIPER yang sudah login.
+              Checkout hanya tersedia untuk akun pembeli yang sudah login.
             </p>
           )}
 
@@ -206,16 +323,17 @@ export default function CatalogPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
             <button type="submit" disabled={loading} className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700">
-              {loading ? "Mencari..." : "Search"}
+              {loading ? "Mencari..." : "Cari"}
             </button>
             <button type="button" onClick={loadAll} disabled={loading} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900">
-              {loading ? "Loading..." : "Load All"}
+              {loading ? "Loading..." : "Reset"}
             </button>
           </form>
+
           <form onSubmit={searchByJastiper} className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
             <input
               className="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-slate-500 dark:border-slate-700 dark:bg-slate-950"
-              placeholder="Cari berdasarkan Jastiper ID..."
+              placeholder="Cari produk berdasarkan email/ID jastiper"
               value={jastiperSearch}
               onChange={(e) => setJastiperSearch(e.target.value)}
             />
@@ -243,7 +361,7 @@ export default function CatalogPage() {
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-100 p-3">
               <p className="text-xs uppercase tracking-wide text-slate-700">Mode</p>
-              <p className="mt-1 text-xl font-semibold text-slate-900">{jastiperSearch.trim() ? "Jastiper" : search.trim() ? "Search" : "Browse"}</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{jastiperSearch.trim() ? "Jastiper" : search.trim() ? "Pencarian" : "Browse"}</p>
             </div>
           </div>
 
@@ -289,48 +407,100 @@ export default function CatalogPage() {
         <section className="mt-6">
           {filteredProducts.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-300">
-              Tidak ada produk yang cocok dengan filter saat ini. Coba ubah filter atau klik <span className="font-semibold">Reset Filter</span>.
+              Tidak ada produk yang cocok dengan filter saat ini.
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredProducts.map((product) => {
-                const checkoutDisabled =
-                  !product.id || !product.jastiperId || product.stock <= 0 || !canCheckoutAsTitiper;
-                return (
-                  <article key={product.id ?? `${product.name}-${product.purchaseDate}`} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="truncate text-xs text-slate-500">{product.id ?? "-"}</p>
-                      <span className={`rounded-full px-2 py-1 text-xs font-semibold ${product.stock > 0 ? "bg-slate-200 text-slate-700" : "bg-slate-200 text-slate-700"}`}>
-                        {product.stock > 0 ? "In Stock" : "Out of Stock"}
-                      </span>
-                    </div>
-                    <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{product.name}</h2>
-                    <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{product.description}</p>
-                    <p className="mt-3 text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(product.price)}</p>
-                    <div className="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
-                      <p>Stok: {product.stock}</p>
-                      <p>Asal: {product.originCountry}</p>
-                      <p>Jastiper: {product.jastiperId ?? "-"}</p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={!product.jastiperId || loading}
-                      onClick={() => void quickPickJastiper(product.jastiperId)}
-                      className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200"
-                    >
-                      Lihat Katalog Jastiper Ini
-                    </button>
-                    <button
-                      type="button"
-                      disabled={checkoutDisabled}
-                      onClick={() => checkoutFromProduct(product)}
-                      className="mt-4 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-slate-100 dark:text-slate-900 dark:disabled:bg-slate-700"
-                    >
-                      {canCheckoutAsTitiper ? "Checkout Produk Ini" : "Login TITIPER untuk Checkout"}
-                    </button>
-                  </article>
-                );
-              })}
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Menampilkan {showingFrom}-{showingTo} dari {filteredProducts.length} produk.
+                </p>
+                <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                  <label className="font-semibold">Per halaman</label>
+                  <select
+                    className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-950"
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <option value={9}>9</option>
+                    <option value={18}>18</option>
+                    <option value={27}>27</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {paginatedProducts.map((product) => {
+                  const ownProduct = isOwnProduct(product);
+                  const checkoutDisabled =
+                    !product.id || !product.jastiperId || product.stock <= 0 || !canCheckoutAsBuyer || ownProduct;
+                  const jastiperInfo = product.jastiperId
+                    ? jastiperInfoMap[product.jastiperId] ?? fallbackJastiperInfo(product.jastiperId)
+                    : null;
+                  return (
+                    <article key={product.id ?? `${product.name}-${product.purchaseDate}`} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs text-slate-500">{product.originCountry}</p>
+                        <span className="rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-700">
+                          {product.stock > 0 ? "In Stock" : "Out of Stock"}
+                        </span>
+                      </div>
+                      <h2 className="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">{product.name}</h2>
+                      <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{product.description}</p>
+                      <p className="mt-3 text-xl font-bold text-slate-900 dark:text-slate-100">{formatCurrency(product.price)}</p>
+                      <div className="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                        <p>Stok: {product.stock}</p>
+                        <p>Jastiper: {jastiperInfo?.name ?? "-"}</p>
+                        {jastiperInfo?.identifier && !jastiperInfo.identifier.includes("@") && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">ID Jastiper: {jastiperInfo.identifier}</p>
+                        )}
+                        {ownProduct && <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Produk Anda</p>}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!product.jastiperId || loading}
+                        onClick={() => void quickPickJastiper(product.jastiperId)}
+                        className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200"
+                      >
+                        Lihat produk jastiper ini
+                      </button>
+                      <button
+                        type="button"
+                        disabled={checkoutDisabled}
+                        onClick={() => checkoutFromProduct(product)}
+                        className="mt-4 w-full rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-slate-100 dark:text-slate-900 dark:disabled:bg-slate-700"
+                      >
+                        {ownProduct ? "Produk Anda" : canCheckoutAsBuyer ? "Checkout" : "Login untuk Checkout"}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage <= 1}
+                  className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold disabled:opacity-50 dark:border-slate-700"
+                >
+                  Sebelumnya
+                </button>
+                <span className="text-xs text-slate-600 dark:text-slate-300">
+                  Halaman {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="rounded-md border border-slate-300 px-3 py-1 text-xs font-semibold disabled:opacity-50 dark:border-slate-700"
+                >
+                  Berikutnya
+                </button>
+              </div>
             </div>
           )}
         </section>
@@ -338,4 +508,3 @@ export default function CatalogPage() {
     </main>
   );
 }
-

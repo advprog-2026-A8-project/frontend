@@ -26,6 +26,7 @@ export interface CheckoutPayload {
   jastiperId: string;
   jumlah: number;
   alamatPengiriman: string;
+  voucherCode?: string;
 }
 
 export interface RatingPayload {

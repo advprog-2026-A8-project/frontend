@@ -85,6 +85,12 @@ function jwtUserId(payload: Record<string, unknown> | null): string {
   return typeof fallback === "string" ? fallback : "";
 }
 
+function jwtSubject(payload: Record<string, unknown> | null): string {
+  if (!payload) return "";
+  const subject = payload.sub;
+  return typeof subject === "string" ? subject : "";
+}
+
 function checkoutForbiddenMessage() {
   return "Checkout ditolak karena token login belum memuat claim userId (UUID). Logout lalu login ulang setelah backend auth terbaru aktif.";
 }
@@ -99,6 +105,7 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
   const role = useMemo(() => mapRole(session.role), [session.role]);
   const tokenPayload = useMemo(() => decodeJwtPayload(session.token), [session.token]);
   const tokenUserId = useMemo(() => jwtUserId(tokenPayload), [tokenPayload]);
+  const tokenSubject = useMemo(() => jwtSubject(tokenPayload), [tokenPayload]);
   const canCheckout = role === "titiper";
   const hasCatalogDraft = Boolean(checkoutDraft?.productId && checkoutDraft?.jastiperId);
   const authHeader = useMemo(() => (session.token ? `Bearer ${session.token}` : undefined), [session.token]);
@@ -135,7 +142,16 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
 
   const canUseOrder = Boolean(authHeader && sessionUserId);
-  const currentJastiperId = role === "jastiper" ? sessionUserId : jastiperId.trim();
+  const jastiperIdentityCandidates = useMemo(() => {
+    const candidates = [sessionUserId, tokenUserId.trim(), tokenSubject.trim()];
+    const uniq = new Set<string>();
+    candidates.forEach((candidate) => {
+      if (candidate) uniq.add(candidate);
+    });
+    return Array.from(uniq);
+  }, [sessionUserId, tokenSubject, tokenUserId]);
+
+  const jastiperIdentitySet = useMemo(() => new Set(jastiperIdentityCandidates), [jastiperIdentityCandidates]);
 
   const loadOrders = useCallback(async () => {
     if (!canUseOrder) return;
@@ -153,11 +169,15 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
           { title: "Riwayat Order", orders: history, emptyLabel: "Riwayat order masih kosong." },
         ]);
       } else if (role === "jastiper") {
-        const [todo, processing, completed] = await Promise.all([
-          orderApi.getJastiperTodo(sessionUserId, { authorization: authHeader }),
-          orderApi.getJastiperProcessing(sessionUserId, { authorization: authHeader }),
-          orderApi.getJastiperCompleted(sessionUserId, { authorization: authHeader }),
+        const candidateIds = jastiperIdentityCandidates.length > 0 ? jastiperIdentityCandidates : [sessionUserId];
+        const [todoBuckets, processingBuckets, completedBuckets] = await Promise.all([
+          Promise.all(candidateIds.map((id) => orderApi.getJastiperTodo(id, { authorization: authHeader }).catch(() => []))),
+          Promise.all(candidateIds.map((id) => orderApi.getJastiperProcessing(id, { authorization: authHeader }).catch(() => []))),
+          Promise.all(candidateIds.map((id) => orderApi.getJastiperCompleted(id, { authorization: authHeader }).catch(() => []))),
         ]);
+        const todo = Array.from(new Map(todoBuckets.flat().map((order) => [order.id, order])).values());
+        const processing = Array.from(new Map(processingBuckets.flat().map((order) => [order.id, order])).values());
+        const completed = Array.from(new Map(completedBuckets.flat().map((order) => [order.id, order])).values());
         setSegments([
           { title: "Perlu Diproses", orders: todo, emptyLabel: "Tidak ada order baru." },
           { title: "Sedang Diproses", orders: processing, emptyLabel: "Tidak ada order in-progress." },
@@ -173,7 +193,7 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
     } finally {
       setLoading(false);
     }
-  }, [authHeader, canUseOrder, role, sessionUserId]);
+  }, [authHeader, canUseOrder, jastiperIdentityCandidates, role, sessionUserId]);
 
   async function onCheckoutSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -251,12 +271,13 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
   }
 
   async function cancelOrder(order: Order) {
-    if (!currentJastiperId) return;
+    const jastiperParam = role === "jastiper" ? order.jastiperId : jastiperId.trim();
+    if (!jastiperParam) return;
     setLoading(true);
     setError("");
     setMessage("");
     try {
-      await orderApi.cancelByJastiper(order.id, currentJastiperId, { authorization: authHeader });
+      await orderApi.cancelByJastiper(order.id, jastiperParam, { authorization: authHeader });
       setMessage(`Order ${order.id} berhasil dibatalkan dan diproses refund.`);
       await loadOrders();
     } catch (err) {
@@ -445,7 +466,7 @@ export function OrderDashboard({ initialView = "checkout" }: OrderDashboardProps
                         const nextStatus = STATUS_ACTIONS_BY_ROLE[role][order.status];
                         const canCancel =
                           role === "jastiper" &&
-                          order.jastiperId === sessionUserId &&
+                          jastiperIdentitySet.has(order.jastiperId) &&
                           !["COMPLETED", "CANCELLED"].includes(order.status);
                         const canRate =
                           role === "titiper" &&

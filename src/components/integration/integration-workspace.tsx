@@ -120,7 +120,7 @@ export function IntegrationWorkspace() {
     }
   }
 
-  const invHeaders = { "X-User-Id": session.userId, "X-User-Role": session.role };
+  const invHeaders = auth ? { Authorization: auth } : undefined;
 
   return (
     <main className="min-h-screen bg-slate-100 p-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -314,11 +314,11 @@ export function IntegrationWorkspace() {
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" disabled={loading} onClick={() => run(() => gatewayRequest("voucher", "api/vouchers/admin/create", { method: "POST", body: {
                     code: voucherForm.code, quota: voucherForm.quota, discountValue: voucherForm.discountValue, minPurchase: voucherForm.minPurchase, discountType: voucherForm.discountType, expiryDate: voucherForm.expiryDate, termsAndConditions: voucherForm.termsAndConditions
-                  } }), "Create voucher berhasil.")}>Create</Button>
-                  <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("voucher", "api/vouchers/admin/list"), "Admin list voucher berhasil.")}>List</Button>
+                  }, headers: { Authorization: auth } }), "Create voucher berhasil.")}>Create</Button>
+                  <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("voucher", "api/vouchers/admin/list", { headers: { Authorization: auth } }), "Admin list voucher berhasil.")}>List</Button>
                   <Button type="button" variant="outline" disabled={loading} onClick={() => run(() => gatewayRequest("voucher", `api/vouchers/admin/update/${voucherForm.code}`, { method: "PATCH", body: {
                     additionalQuota: voucherForm.additionalQuota, isActive: voucherForm.isActive, newExpiry: voucherForm.newExpiry || undefined
-                  } }), "Update voucher berhasil.")}>Update</Button>
+                  }, headers: { Authorization: auth } }), "Update voucher berhasil.")}>Update</Button>
                 </div>
               </div>
             </Card>

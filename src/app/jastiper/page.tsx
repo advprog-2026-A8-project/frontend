@@ -35,6 +35,7 @@ export default function JastiperPage() {
   const role = session.role.toUpperCase();
   const isAuthenticated = Boolean(session.token && session.userId);
   const canAccess = role.includes("JASTIPER") || role.includes("ADMIN");
+  const inventoryHeaders = auth ? { Authorization: auth } : undefined;
 
   const [catalog, setCatalog] = useState<Product[]>([]);
   const [todoOrders, setTodoOrders] = useState<Order[]>([]);
@@ -99,10 +100,7 @@ export default function JastiperPage() {
 
   async function loadCatalog() {
     const data = await gatewayRequest<Product[]>("inventory", "api/products/my-catalog", {
-      headers: {
-        "X-User-Id": session.userId,
-        "X-User-Role": role || "JASTIPER",
-      },
+      headers: inventoryHeaders,
     });
     setCatalog(data);
   }
@@ -129,10 +127,7 @@ export default function JastiperPage() {
     await run(async () => {
       await gatewayRequest("inventory", "api/products/create", {
         method: "POST",
-        headers: {
-          "X-User-Id": session.userId,
-          "X-User-Role": role || "JASTIPER",
-        },
+        headers: inventoryHeaders,
         body: {
           name: productForm.name,
           description: productForm.description,
@@ -155,10 +150,7 @@ export default function JastiperPage() {
     await run(async () => {
       await gatewayRequest("inventory", `api/products/update/${productForm.id.trim()}`, {
         method: "PUT",
-        headers: {
-          "X-User-Id": session.userId,
-          "X-User-Role": role || "JASTIPER",
-        },
+        headers: inventoryHeaders,
         body: {
           name: productForm.name,
           description: productForm.description,
@@ -180,10 +172,7 @@ export default function JastiperPage() {
     await run(async () => {
       await gatewayRequest("inventory", `api/products/delete/${productForm.id.trim()}`, {
         method: "DELETE",
-        headers: {
-          "X-User-Id": session.userId,
-          "X-User-Role": role || "JASTIPER",
-        },
+        headers: inventoryHeaders,
       });
       await loadCatalog();
       resetProductForm();
@@ -197,10 +186,7 @@ export default function JastiperPage() {
     await run(async () => {
       await gatewayRequest("inventory", `api/products/delete/${productId}`, {
         method: "DELETE",
-        headers: {
-          "X-User-Id": session.userId,
-          "X-User-Role": role || "JASTIPER",
-        },
+        headers: inventoryHeaders,
       });
       await loadCatalog();
       if (productForm.id === productId) resetProductForm();
